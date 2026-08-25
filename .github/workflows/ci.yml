@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: PostgreSQL ${{ matrix.postgres }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The whole range the consumers support. A fingerprint that only works
+        # on the newest server is not a shared definition of anything.
+        postgres: [14, 15, 16, 17, 18]
+
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}
+        env:
+          POSTGRES_USER: pgc
+          POSTGRES_PASSWORD: pgc
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U pgc"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install psql matching the server
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
+            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-${{ matrix.postgres }}
+          psql --version
+
+      - name: Test
+        env:
+          PGURL: postgresql://pgc:pgc@127.0.0.1:5432/postgres
+        run: npm test
+
+  php:
+    name: PHP accessor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      # The two accessors must agree, or a shared definition is not shared:
+      # each language would be asking a different question of the database.
+      - name: PHP and JS accessors produce identical SQL
+        run: |
+          set -euo pipefail
+          php -r 'require "src/Conformance.php";
+                  file_put_contents("/tmp/php.sql",
+                    Akalforge\PgConformance\Conformance::fingerprintSql(["public","app"]));'
+          node -e 'import("./index.js").then(async m =>
+                    (await import("node:fs")).writeFileSync("/tmp/js.sql", m.fingerprintSql(["public","app"])))'
+          diff /tmp/php.sql /tmp/js.sql && echo "accessors agree"
+
+      - name: PHP accessor rejects injection
+        run: |
+          php -r 'require "src/Conformance.php";
+                  try {
+                    Akalforge\PgConformance\Conformance::fingerprintSql(["x\"; DROP DATABASE y; --"]);
+                    fwrite(STDERR, "expected a rejection\n"); exit(1);
+                  } catch (InvalidArgumentException $e) { echo "rejected as expected\n"; }'

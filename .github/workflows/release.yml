@@ -1,0 +1,101 @@
+name: Release
+
+# Every merge to main publishes. The point is that consumers track this package
+# without anyone thinking about it, and a release step people have to remember
+# is a release step that gets skipped.
+#
+# Patch by default. Put [minor] or [major] in the merge commit subject — or
+# label the PR release:minor / release:major — when the change is more than a
+# fix. [skip release] opts out entirely, for docs-only changes.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      !contains(github.event.head_commit.message, '[skip release]') &&
+      !startsWith(github.event.head_commit.message, 'chore(release):')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: pgc
+          POSTGRES_PASSWORD: pgc
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U pgc"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          registry-url: https://registry.npmjs.org
+
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # Publishing something that has not been proven against a real server
+      # would defeat the purpose of the package.
+      - name: Test before publishing
+        env:
+          PGURL: postgresql://pgc:pgc@127.0.0.1:5432/postgres
+        run: npm test
+
+      - name: Decide the bump
+        id: bump
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUBJECT: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          subject="$(printf '%s' "$SUBJECT" | head -n1)"
+
+          bump=patch
+          case "$subject" in
+            *"[major]"*) bump=major ;;
+            *"[minor]"*) bump=minor ;;
+          esac
+
+          # A label on the merged PR wins over the commit subject: it is the
+          # thing a reviewer sets deliberately, and it survives a squash whose
+          # subject someone edited.
+          labels="$(gh pr list --state merged --limit 1 --search "$GITHUB_SHA" \
+                      --json labels --jq '.[].labels[].name' 2>/dev/null || true)"
+          case "$labels" in
+            *release:major*) bump=major ;;
+            *release:minor*) bump=minor ;;
+          esac
+
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "Releasing a $bump"
+
+      - name: Version, tag and publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version "${{ steps.bump.outputs.bump }}" -m "chore(release): %s [skip release]"
+          npm publish
+          git push --follow-tags

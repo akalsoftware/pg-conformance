@@ -1,0 +1,43 @@
+{
+  "name": "@akalforge/pg-conformance",
+  "version": "1.0.0",
+  "description": "A PostgreSQL schema fingerprint and DDL conformance corpus, shared by tools that need to agree on whether two schemas are the same.",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": "./index.js",
+    "./fingerprint.sql": "./fingerprint.sql",
+    "./corpus/*.json": "./corpus/*.json"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "fingerprint.sql",
+    "corpus",
+    "src"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "postgresql",
+    "postgres",
+    "schema",
+    "migration",
+    "diff",
+    "conformance",
+    "fingerprint"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akalforge/pg-conformance.git"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,201 @@
+[
+  {
+    "id": "a_table_is_created_before_the_table_whose_foreign_key_points_at_it",
+    "description": "a table is created before the table whose foreign key points at it",
+    "statements": [
+      "CREATE TABLE user_profile (id int REFERENCES \"user\"(id), bio text);",
+      "CREATE TABLE \"user\" (id int PRIMARY KEY);"
+    ],
+    "requires": [
+      [
+        "CREATE TABLE \"user\"",
+        "CREATE TABLE user_profile"
+      ]
+    ]
+  },
+  {
+    "id": "quoted_names_that_collide_with_keywords_are_still_ordered",
+    "description": "quoted names that collide with keywords are still ordered",
+    "statements": [
+      "CREATE TABLE \"order\" (id int REFERENCES \"table\"(id));",
+      "CREATE TABLE \"table\" (id int PRIMARY KEY);"
+    ],
+    "requires": [
+      [
+        "CREATE TABLE \"table\"",
+        "CREATE TABLE \"order\""
+      ]
+    ]
+  },
+  {
+    "id": "a_domain_is_created_before_the_column_that_uses_it",
+    "description": "a domain is created before the column that uses it",
+    "statements": [
+      "CREATE TABLE d_t (id int, v money_amt);",
+      "CREATE DOMAIN money_amt AS numeric(10,2) CHECK (VALUE >= 0);"
+    ],
+    "requires": [
+      [
+        "CREATE DOMAIN money_amt",
+        "CREATE TABLE d_t"
+      ]
+    ]
+  },
+  {
+    "id": "a_function_is_created_before_the_check_constraint_that_calls_it",
+    "description": "a function is created before the CHECK constraint that calls it",
+    "statements": [
+      "CREATE TABLE c_t (id int, code text, CONSTRAINT c_ck CHECK (is_valid(code)));",
+      "CREATE FUNCTION is_valid(t text) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$ SELECT length(t) > 2 $$;"
+    ],
+    "requires": [
+      [
+        "CREATE FUNCTION is_valid",
+        "CREATE TABLE c_t"
+      ]
+    ]
+  },
+  {
+    "id": "a_function_is_created_before_the_generated_column_that_calls_it",
+    "description": "a function is created before the generated column that calls it",
+    "statements": [
+      "CREATE TABLE g_t (id int, raw text, norm text GENERATED ALWAYS AS (norm_it(raw)) STORED);",
+      "CREATE FUNCTION norm_it(t text) RETURNS text LANGUAGE sql IMMUTABLE AS $$ SELECT lower(t) $$;"
+    ],
+    "requires": [
+      [
+        "CREATE FUNCTION norm_it",
+        "CREATE TABLE g_t"
+      ]
+    ]
+  },
+  {
+    "id": "a_composite_type_is_created_before_the_function_that_returns_it",
+    "description": "a composite type is created before the function that returns it",
+    "statements": [
+      "CREATE FUNCTION mk_addr() RETURNS addr_t LANGUAGE sql AS $$ SELECT ROW('a','b')::addr_t $$;",
+      "CREATE TYPE addr_t AS (street text, city text);"
+    ],
+    "requires": [
+      [
+        "CREATE TYPE addr_t",
+        "CREATE FUNCTION mk_addr"
+      ]
+    ]
+  },
+  {
+    "id": "a_view_that_selects_from_a_function_waits_for_the_function_and_its_table",
+    "description": "a view that selects from a function waits for the function and its table",
+    "statements": [
+      "CREATE VIEW v_top AS SELECT * FROM top_ids();",
+      "CREATE FUNCTION top_ids() RETURNS TABLE(id int) LANGUAGE sql AS $$ SELECT id FROM base_t $$;",
+      "CREATE TABLE base_t (id int);"
+    ],
+    "requires": [
+      [
+        "CREATE TABLE base_t",
+        "CREATE FUNCTION top_ids"
+      ],
+      [
+        "CREATE FUNCTION top_ids",
+        "CREATE VIEW v_top"
+      ]
+    ]
+  },
+  {
+    "id": "a_chain_of_views_is_created_from_the_base_outwards",
+    "description": "a chain of views is created from the base outwards",
+    "statements": [
+      "CREATE VIEW v3 AS SELECT id FROM v2;",
+      "CREATE VIEW v1 AS SELECT id FROM vbase;",
+      "CREATE VIEW v2 AS SELECT id FROM v1;",
+      "CREATE TABLE vbase (id int);"
+    ],
+    "requires": [
+      [
+        "CREATE TABLE vbase",
+        "CREATE VIEW v1"
+      ],
+      [
+        "CREATE VIEW v1",
+        "CREATE VIEW v2"
+      ],
+      [
+        "CREATE VIEW v2",
+        "CREATE VIEW v3"
+      ]
+    ]
+  },
+  {
+    "id": "a_partition_is_attached_before_the_index_on_its_parent",
+    "description": "a partition is attached before the index on its parent",
+    "statements": [
+      "CREATE INDEX p_i ON ONLY p_tbl (d);",
+      "CREATE TABLE p_26 PARTITION OF p_tbl FOR VALUES FROM ('2026-01-01') TO ('2027-01-01');",
+      "CREATE TABLE p_tbl (id int, d date) PARTITION BY RANGE (d);"
+    ],
+    "requires": [
+      [
+        "CREATE TABLE p_tbl",
+        "CREATE TABLE p_26"
+      ],
+      [
+        "CREATE TABLE p_26",
+        "CREATE INDEX p_i"
+      ]
+    ]
+  },
+  {
+    "id": "an_enum_is_created_before_the_column_defaulting_to_one_of_its_labels",
+    "description": "an enum is created before the column defaulting to one of its labels",
+    "statements": [
+      "CREATE TABLE e_t (id int, m mood_x NOT NULL DEFAULT 'ok');",
+      "CREATE TYPE mood_x AS ENUM ('sad','ok');"
+    ],
+    "requires": [
+      [
+        "CREATE TYPE mood_x",
+        "CREATE TABLE e_t"
+      ]
+    ]
+  },
+  {
+    "id": "a_three_table_foreign_key_chain_is_created_root_first",
+    "description": "a three-table foreign key chain is created root first",
+    "statements": [
+      "CREATE TABLE l3 (id int REFERENCES l2(id));",
+      "CREATE TABLE l1 (id int PRIMARY KEY);",
+      "CREATE TABLE l2 (id int PRIMARY KEY REFERENCES l1(id));"
+    ],
+    "requires": [
+      [
+        "CREATE TABLE l1",
+        "CREATE TABLE l2"
+      ],
+      [
+        "CREATE TABLE l2",
+        "CREATE TABLE l3"
+      ]
+    ]
+  },
+  {
+    "id": "a_trigger_waits_for_its_function_and_the_table_it_fires_on",
+    "description": "a trigger waits for its function and the table it fires on",
+    "statements": [
+      "CREATE TRIGGER t_aud AFTER INSERT ON src_t FOR EACH ROW EXECUTE FUNCTION log_it();",
+      "CREATE FUNCTION log_it() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN INSERT INTO audit_t VALUES (1); RETURN NEW; END $$;",
+      "CREATE TABLE src_t (id int);",
+      "CREATE TABLE audit_t (id int);"
+    ],
+    "requires": [
+      [
+        "CREATE TABLE src_t",
+        "CREATE TRIGGER t_aud"
+      ],
+      [
+        "CREATE FUNCTION log_it",
+        "CREATE TRIGGER t_aud"
+      ]
+    ]
+  }
+]
