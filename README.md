@@ -85,7 +85,16 @@ PostgreSQL 14 or newer. Tested against 14, 15, 16, 17 and 18 on every change.
 
 ## Releases
 
-Every merge to `main` publishes a patch automatically, so consumers on `^1` track it without ceremony. `[minor]` or `[major]` in the merge commit subject, or a `release:minor` / `release:major` label on the PR, bumps further. `[skip release]` opts out.
+Every merge to `main` publishes a patch automatically, so consumers track it without ceremony. `[minor]` or `[major]` in the merge commit subject, or a `release:minor` / `release:major` label on the PR, bumps further. `[skip release]` opts out.
+
+This package is `0.x` while the fingerprint settles. **Depend on it with `~0.0.x`, not `^0.0.x`** — under semver a caret on a `0.0.z` version allows no updates at all, so `^0.0.1` is an exact pin and you would never receive a release:
+
+```jsonc
+"@akalforge/pg-conformance": "~0.0.1"   // tracks 0.0.2, 0.0.3, ...
+"@akalforge/pg-conformance": "^0.0.1"   // pinned to exactly 0.0.1
+```
+
+Once it reaches `0.1.0`, `^0.1.0` tracks the `0.1.x` line as you would expect.
 
 Consumers pin through their lockfile as usual; a bot bumps that lockfile, so `npm ci` stays reproducible and still moves.
 
