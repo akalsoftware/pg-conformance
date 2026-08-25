@@ -72,7 +72,7 @@ Definitions are flattened to one line, because entries are newline-joined and a 
 | corpus | cases | what it is for |
 | --- | --- | --- |
 | `objects` | 20 | creating each object kind from an empty schema |
-| `hard-cases` | 34 | DDL that is awkward to reproduce — identity options, generated columns, exclusion constraints, partitioning of all three strategies, inheritance, collations, storage parameters, compression |
+| `hard-cases` | 90 | DDL that is awkward to reproduce — identity options, generated columns, exclusion constraints, partitioning of all three strategies and multi-level, inheritance, collations, storage and TOAST parameters, compression, every index method, interval and range types, domains over domains, function overloads, `INSTEAD OF` and constraint triggers, restrictive policies |
 | `ordering` | 12 | dependency ordering, with names chosen to defeat text matching |
 
 `ordering` cases give statements in an order that does **not** apply, plus the precedences any correct order must satisfy — a property rather than one expected permutation, so a sorter's tie-breaking can change without invalidating the case.
