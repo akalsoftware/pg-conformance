@@ -55,6 +55,48 @@ Schema names are quoted by the accessor, not by you — the query embeds them as
 
 If you shell out to `psql`, use `fingerprintSqlPath` and substitute `__SCHEMAS__` yourself.
 
+## Schema state
+
+`fingerprintSql()` answers *are these the same?*. `stateSql()` answers *what is there?* — the same catalog knowledge shaped as a JSON document, so a consumer can compute its own diff instead of trusting someone else's idea of what changed.
+
+```js
+import { stateSql } from '@akalforge/pg-conformance'
+
+const before = JSON.parse(await query(db, stateSql(['public'])))
+// ... apply a migration ...
+const after  = JSON.parse(await query(db, stateSql(['public'])))
+```
+
+```json
+{
+  "meta": { "server_version_num": 170011, "schemas": ["public"] },
+  "tables": [{
+    "schema": "public", "name": "orders", "kind": "partitioned_table",
+    "unlogged": false, "partition_by": "RANGE (created_at)",
+    "options": ["fillfactor=70"], "rls_enabled": true,
+    "columns": [{
+      "name": "id", "type": "bigint", "not_null": true,
+      "identity": "always",
+      "identity_options": { "start": 100, "increment": 10, "cycle": false },
+      "storage": "plain", "compression": null, "collation": null
+    }],
+    "constraints": [...], "indexes": [...], "policies": [...], "triggers": [...]
+  }],
+  "views": [...], "sequences": [...], "routines": [...],
+  "types": [...], "extensions": [...]
+}
+```
+
+Two conventions, both learned from getting them wrong:
+
+**Values are semantic, not catalog shorthand.** `attstorage` `'x'` is reported as `"extended"`, `attcompression` `'l'` as `"lz4"`, `attidentity` `'a'` as `"always"`. A consumer should not have to memorise single letters.
+
+**Inherited defaults are `null`, not spelled out.** A column that merely uses the database collation reports `null` rather than `"default"` — otherwise every text column in an unchanged schema reads as different.
+
+The state document is verified to distinguish **every pair of corpus schemas the fingerprint distinguishes** — 4005 pairs, zero misses — so adopting it loses nothing the fingerprint already caught. It is also byte-stable: identical schemas produce identical documents.
+
+Existing schema APIs are not a substitute. `information_schema` cannot express a partition bound, identity sequence options, storage, compression or collation, and `postgres-meta` reads `relkind`/`relrowsecurity` but not `relpartbound`, `relpersistence` or `reloptions`, no identity options, and does not model sequences at all.
+
 ## What the fingerprint covers
 
 Relations (kind, persistence, partition bound, storage options, RLS) · columns (type, nullability, default, identity, generated, storage, compression, collation) · sequence options · constraints (definition, validated, deferrable) · indexes, per relation · views and materialised views, **by body** · routines, **by body** · triggers, **by definition** · policies (command, roles, `USING`, `WITH CHECK`) · enums, domains and composite types · inheritance · comments.

@@ -31,21 +31,47 @@ final class Conformance
      */
     public static function fingerprintSql(array $schemas = ['public']): string
     {
+        return str_replace('__SCHEMAS__', self::schemaList($schemas), (string) file_get_contents(self::fingerprintSqlPath()));
+    }
+
+    /**
+     * Quote a schema list for embedding as SQL literals.
+     *
+     * Rejects anything that is not a plain identifier rather than escaping it:
+     * none is legitimate here, and accepting one quietly would hide a caller
+     * bug. The single place either query could take an injection.
+     *
+     * @param list<string> $schemas
+     */
+    private static function schemaList(array $schemas): string
+    {
         if ($schemas === []) {
-            throw new \InvalidArgumentException('fingerprintSql: expected at least one schema name');
+            throw new \InvalidArgumentException('expected at least one schema name');
         }
 
         foreach ($schemas as $schema) {
             if (preg_match('/^[A-Za-z_][A-Za-z0-9_$]*$/', $schema) !== 1) {
-                throw new \InvalidArgumentException(
-                    sprintf('fingerprintSql: unsupported schema name "%s"', $schema)
-                );
+                throw new \InvalidArgumentException(sprintf('unsupported schema name "%s"', $schema));
             }
         }
 
-        $list = implode(',', array_map(static fn (string $s): string => "'$s'", $schemas));
+        return implode(',', array_map(static fn (string $s): string => "'$s'", $schemas));
+    }
 
-        return str_replace('__SCHEMAS__', $list, (string) file_get_contents(self::fingerprintSqlPath()));
+    /** Path to the state query, for callers that shell out to psql. */
+    public static function stateSqlPath(): string
+    {
+        return dirname(__DIR__) . '/state.sql';
+    }
+
+    /**
+     * The schema-state query with the schema list substituted in.
+     *
+     * @param list<string> $schemas
+     */
+    public static function stateSql(array $schemas = ['public']): string
+    {
+        return str_replace('__SCHEMAS__', self::schemaList($schemas), (string) file_get_contents(self::stateSqlPath()));
     }
 
     /** Corpus names that ship with this package. */

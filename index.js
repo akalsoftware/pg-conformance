@@ -26,16 +26,42 @@ export const fingerprintSqlPath = join(HERE, 'fingerprint.sql')
  * hide a caller bug.
  */
 export function fingerprintSql(schemas = ['public']) {
+  return readFileSync(fingerprintSqlPath, 'utf8').replaceAll('__SCHEMAS__', schemaList(schemas))
+}
+
+/**
+ * Quote a schema list for embedding as SQL literals.
+ *
+ * A name that is not a plain identifier is rejected rather than escaped: none
+ * is legitimate here, and accepting one quietly would hide a caller bug. This
+ * is the single place either query could take an injection.
+ */
+function schemaList(schemas) {
   if (!Array.isArray(schemas) || schemas.length === 0) {
-    throw new TypeError('fingerprintSql: expected a non-empty array of schema names')
+    throw new TypeError('expected a non-empty array of schema names')
   }
   for (const s of schemas) {
     if (typeof s !== 'string' || !/^[A-Za-z_][A-Za-z0-9_$]*$/.test(s)) {
-      throw new TypeError(`fingerprintSql: unsupported schema name ${JSON.stringify(s)}`)
+      throw new TypeError(`unsupported schema name ${JSON.stringify(s)}`)
     }
   }
-  const list = schemas.map(s => `'${s}'`).join(',')
-  return readFileSync(fingerprintSqlPath, 'utf8').replaceAll('__SCHEMAS__', list)
+  return schemas.map(s => `'${s}'`).join(',')
+}
+
+/** Absolute path to the state query, for consumers that shell out to psql. */
+export const stateSqlPath = join(HERE, 'state.sql')
+
+/**
+ * The schema-state query, with the schema list substituted in.
+ *
+ * Where the fingerprint answers "are these the same?", this answers "what is
+ * there?" — the same catalog knowledge shaped as a JSON document, so a
+ * consumer can compute its own diff rather than trusting someone else's idea
+ * of what changed. Schema names are validated and quoted here for the same
+ * reason as in fingerprintSql.
+ */
+export function stateSql(schemas = ['public']) {
+  return readFileSync(stateSqlPath, 'utf8').replaceAll('__SCHEMAS__', schemaList(schemas))
 }
 
 /** Corpus names that ship with this package. */

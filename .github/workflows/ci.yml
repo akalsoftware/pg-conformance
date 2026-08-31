@@ -69,12 +69,14 @@ jobs:
       - name: PHP and JS accessors produce identical SQL
         run: |
           set -euo pipefail
-          php -r 'require "src/Conformance.php";
-                  file_put_contents("/tmp/php.sql",
-                    Akalforge\PgConformance\Conformance::fingerprintSql(["public","app"]));'
-          node -e 'import("./index.js").then(async m =>
-                    (await import("node:fs")).writeFileSync("/tmp/js.sql", m.fingerprintSql(["public","app"])))'
-          diff /tmp/php.sql /tmp/js.sql && echo "accessors agree"
+          for q in fingerprintSql stateSql; do
+            php -r "require 'src/Conformance.php';
+                    file_put_contents('/tmp/php.sql',
+                      Akalforge\PgConformance\Conformance::\$q(['public','app']));"
+            node -e "import('./index.js').then(async m =>
+                      (await import('node:fs')).writeFileSync('/tmp/js.sql', m.$q(['public','app'])))"
+            diff /tmp/php.sql /tmp/js.sql && echo "\$q: accessors agree"
+          done
 
       - name: PHP accessor rejects injection
         run: |
