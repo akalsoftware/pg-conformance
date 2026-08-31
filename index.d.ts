@@ -33,6 +33,64 @@ export interface CorpusByName {
   ordering: OrderingCase[]
 }
 
+/** One relation and everything attached to it. */
+export interface StateTable {
+  schema: string
+  name: string
+  kind: 'table' | 'partitioned_table' | 'foreign_table'
+  unlogged: boolean
+  partition_of: string | null
+  partition_bound: string | null
+  partition_by: string | null
+  inherits: string[] | null
+  options: string[] | null
+  rls_enabled: boolean
+  rls_forced: boolean
+  comment: string | null
+  columns: StateColumn[] | null
+  constraints: Array<{ name: string; type: string; definition: string; validated: boolean; deferrable: boolean; deferred: boolean }> | null
+  indexes: Array<{ name: string; definition: string }> | null
+  policies: Array<{ name: string; command: string; permissive: boolean; roles: string[] | null; using: string | null; with_check: string | null }> | null
+  triggers: Array<{ name: string; definition: string }> | null
+}
+
+export interface StateColumn {
+  name: string
+  position: number
+  type: string
+  not_null: boolean
+  default: string | null
+  identity: 'always' | 'by_default' | null
+  identity_options: { start: number; increment: number; min: number; max: number; cache: number; cycle: boolean } | null
+  generated: 'stored' | null
+  storage: 'plain' | 'external' | 'main' | 'extended' | null
+  storage_is_default: boolean
+  compression: 'lz4' | 'pglz' | null
+  /** Null when inherited rather than set explicitly. */
+  collation: string | null
+  comment: string | null
+}
+
+/**
+ * A schema as data, rather than as an answer to "are these the same?".
+ *
+ * Sourced from pg_catalog, so it can express what information_schema cannot:
+ * partition bounds, identity sequence options, storage, compression and
+ * whether a collation was chosen or inherited.
+ */
+export interface SchemaState {
+  meta: { server_version_num: number; schemas: string[] }
+  tables: StateTable[]
+  views: Array<{ schema: string; name: string; materialized: boolean; definition: string; options: string[] | null; comment: string | null; columns: Array<{ name: string; type: string }> | null }>
+  sequences: Array<{ schema: string; name: string; type: string; start: number; increment: number; min: number; max: number; cache: number; cycle: boolean; owned_by: string | null }>
+  routines: Array<{ schema: string; name: string; kind: 'function' | 'procedure'; arguments: string; definition: string; comment: string | null }>
+  types: Array<{ schema: string; name: string; kind: 'enum' | 'domain' | 'composite'; labels: string[] | null; base_type: string | null; not_null: boolean; default: string | null; constraints: string[] | null; attributes: Array<{ name: string; type: string }> | null }>
+  extensions: Array<{ name: string; version: string }>
+}
+
+export declare const stateSqlPath: string
+export declare function stateSql(schemas?: string[]): string
+
 export declare const fingerprintSqlPath: string
 export declare function fingerprintSql(schemas?: string[]): string
 export declare const corpora: Array<keyof CorpusByName>
