@@ -66,16 +66,23 @@ jobs:
 
       # The two accessors must agree, or a shared definition is not shared:
       # each language would be asking a different question of the database.
+      # The two accessors must agree, or a shared definition is not shared:
+      # each language would be asking a different question of the database.
+      # The method name travels in the environment rather than through two
+      # layers of shell and PHP quoting, which is where this went wrong before.
       - name: PHP and JS accessors produce identical SQL
         run: |
           set -euo pipefail
           for q in fingerprintSql stateSql; do
-            php -r "require 'src/Conformance.php';
-                    file_put_contents('/tmp/php.sql',
-                      Akalforge\PgConformance\Conformance::\$q(['public','app']));"
-            node -e "import('./index.js').then(async m =>
-                      (await import('node:fs')).writeFileSync('/tmp/js.sql', m.$q(['public','app'])))"
-            diff /tmp/php.sql /tmp/js.sql && echo "\$q: accessors agree"
+            Q="$q" php -r 'require "src/Conformance.php";
+              file_put_contents("/tmp/php.sql", call_user_func(
+                [Akalforge\PgConformance\Conformance::class, getenv("Q")], ["public", "app"]));'
+            Q="$q" node -e 'import("./index.js").then(async m => {
+              const fs = await import("node:fs")
+              fs.writeFileSync("/tmp/js.sql", m[process.env.Q](["public", "app"]))
+            })'
+            diff /tmp/php.sql /tmp/js.sql
+            echo "$q: accessors agree"
           done
 
       - name: PHP accessor rejects injection
