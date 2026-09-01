@@ -1,0 +1,51 @@
+[
+  {
+    "id": "plpgsql_body_multiline",
+    "statements": 1,
+    "description": "a plpgsql body whose own statements end lines, which a split on ';\\n' shatters",
+    "sql": "CREATE FUNCTION split_f() RETURNS int LANGUAGE plpgsql AS $$\nDECLARE x int;\nBEGIN\n  x := 1;\n  RETURN x;\nEND $$;",
+    "minPgVersion": 14
+  },
+  {
+    "id": "string_literal_with_semicolon_newline",
+    "statements": 1,
+    "description": "a string literal containing a semicolon followed by a newline",
+    "sql": "CREATE TABLE split_t (a text DEFAULT 'first;\nsecond');",
+    "minPgVersion": 14
+  },
+  {
+    "id": "dollar_quote_custom_tag",
+    "statements": 1,
+    "description": "a custom dollar-quote tag wrapping SQL that itself ends in a semicolon",
+    "sql": "CREATE FUNCTION split_g() RETURNS text LANGUAGE sql AS $body$\n  SELECT 'x;\ny'::text;\n$body$;",
+    "minPgVersion": 14
+  },
+  {
+    "id": "trailing_comment_with_semicolon",
+    "statements": 2,
+    "description": "a trailing comment containing a semicolon after a complete statement",
+    "sql": "CREATE TABLE split_u (a int); -- trailing; comment\nCREATE TABLE split_v (b int);",
+    "minPgVersion": 14
+  },
+  {
+    "id": "nested_dollar_quotes",
+    "statements": 1,
+    "description": "dollar quotes nested inside a plpgsql body via EXECUTE",
+    "sql": "CREATE FUNCTION split_h() RETURNS text LANGUAGE plpgsql AS $outer$\nBEGIN\n  EXECUTE $inner$ SELECT 1; $inner$;\n  RETURN 'ok';\nEND $outer$;",
+    "minPgVersion": 14
+  },
+  {
+    "id": "view_with_semicolon_in_string",
+    "statements": 1,
+    "description": "a view body spanning lines with a semicolon inside a string literal",
+    "sql": "CREATE VIEW split_w AS SELECT 'a;b'::text AS c,\n  'd;\ne'::text AS f;",
+    "minPgVersion": 14
+  },
+  {
+    "id": "dollar_quote_containing_dollar_quote_text",
+    "statements": 1,
+    "description": "a body containing another dollar quote's characters as literal text, spanning lines",
+    "sql": "CREATE FUNCTION split_i() RETURNS text LANGUAGE sql AS $q$\n  SELECT '$$ not a quote;\n still not $$'::text;\n$q$;",
+    "minPgVersion": 14
+  }
+]

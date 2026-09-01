@@ -27,10 +27,25 @@ export interface OrderingCase {
   requires: Array<[string, string]>
 }
 
+/**
+ * A case for a statement splitter.
+ *
+ * `statements` is how many SQL statements the text actually contains. The
+ * shapes here are the ones a naive split on semicolons gets wrong.
+ */
+export interface SplittingCase {
+  id: string
+  description: string
+  sql: string
+  statements: number
+  minPgVersion?: number
+}
+
 export interface CorpusByName {
   objects: ObjectCase[]
   'hard-cases': HardCase[]
   ordering: OrderingCase[]
+  splitting: SplittingCase[]
 }
 
 /** One relation and everything attached to it. */
