@@ -161,12 +161,43 @@ SELECT string_agg(line, E'\n' ORDER BY line) AS fingerprint FROM (
 
   -- Enums, domains and composite types. Enum label order is significant:
   -- it decides comparison and ORDER BY.
-  SELECT format('typ %s.%s kind=%s labels=%s default=%s notnull=%s',
+  --
+  -- Every kind's content is carried inline, the way enum labels are, because no
+  -- other section can reach it. The col section reads relations (relkind
+  -- r/p/v/m/f) and so never sees a standalone composite's attributes, which are
+  -- on a 'c'; the con section joins conrelid, while a domain's CHECK is keyed by
+  -- contypid and has no conrelid at all. Until these were here, a composite of
+  -- (street text, city text) and one of (postcode int) fingerprinted the same,
+  -- as did domains with CHECK (VALUE > 0) and CHECK (VALUE < -999) — the same
+  -- class of silent agreement this file exists to prevent.
+  --
+  -- Only CHECK constraints are read. PostgreSQL 17 began recording a domain's
+  -- NOT NULL as a constraint row of its own, and notnull= already carries it;
+  -- taking every row would both state it twice and make one logical domain
+  -- fingerprint differently either side of that release.
+  SELECT format('typ %s.%s kind=%s labels=%s default=%s notnull=%s base=%s attrs=%s checks=%s',
                 n.nspname, t.typname, t.typtype,
                 COALESCE((SELECT string_agg(e.enumlabel, ',' ORDER BY e.enumsortorder)
                             FROM pg_enum e WHERE e.enumtypid = t.oid), '-'),
                 COALESCE(btrim(regexp_replace(pg_get_expr(t.typdefaultbin, 0), '\s+', ' ', 'g')), '-'),
-                t.typnotnull)
+                t.typnotnull,
+                COALESCE(CASE WHEN t.typtype = 'd'
+                              THEN format_type(t.typbasetype, t.typtypmod) END, '-'),
+                COALESCE((SELECT string_agg(
+                                   format('%s %s', a.attname,
+                                          format_type(a.atttypid, a.atttypmod)),
+                                   ',' ORDER BY a.attnum)
+                            FROM pg_attribute a
+                           WHERE a.attrelid = t.typrelid
+                             AND a.attnum > 0 AND NOT a.attisdropped), '-'),
+                COALESCE((SELECT string_agg(
+                                   format('%s %s', con.conname,
+                                          btrim(regexp_replace(
+                                            pg_get_constraintdef(con.oid), '\s+', ' ', 'g'))),
+                                   ',' ORDER BY con.conname)
+                            FROM pg_constraint con
+                           WHERE con.contypid = t.oid
+                             AND con.contype = 'c'), '-'))
     FROM pg_type t
     JOIN pg_namespace n ON n.oid = t.typnamespace
    WHERE n.nspname IN (__SCHEMAS__)
