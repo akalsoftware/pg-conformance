@@ -100,6 +100,28 @@ describe('state against a live server', { skip: PGURL ? false : 'set PGURL to ru
     assert.equal(table.columns.find(c => c.name === 'explicit').collation, 'C')
   })
 
+  // owned_by is how a consumer tells a sequence it must reproduce from one the
+  // column already brings. Both kinds of ownership have to be reported, and
+  // they are recorded differently: a serial column's sequence depends on it
+  // with deptype 'a', an identity column's with 'i'. Reading only 'a' left
+  // every identity sequence looking standalone, so a tool emitting DDL for what
+  // it believed were standalone sequences produced CREATE SEQUENCE for one the
+  // table already creates — "relation already exists".
+  test('reports ownership for identity as well as serial sequences', async () => {
+    await reset('st_own')
+    await psql('st_own', `
+      CREATE TABLE t_ser (id serial);
+      CREATE TABLE t_ident (id bigint GENERATED ALWAYS AS IDENTITY);
+      CREATE SEQUENCE truly_standalone;`)
+    const byName = Object.fromEntries(
+      JSON.parse(await stateOf('st_own')).sequences.map(s => [s.name, s.owned_by])
+    )
+
+    assert.equal(byName['t_ser_id_seq'], 't_ser.id')
+    assert.equal(byName['t_ident_id_seq'], 't_ident.id')
+    assert.equal(byName['truly_standalone'], null)
+  })
+
   test('is byte-identical for identically built schemas', async () => {
     const ddl = `
       CREATE TYPE mood AS ENUM ('a','b');

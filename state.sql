@@ -154,8 +154,14 @@ SELECT jsonb_pretty(jsonb_build_object(
      WHERE n.nspname IN (__SCHEMAS__) AND c.relkind IN ('v','m')
     ) q), '[]'::jsonb),
 
-  -- Standalone sequences only. One owned by an identity or serial column is
-  -- reported on that column, where it belongs.
+  -- Every sequence, with owned_by naming the column that brought it into being
+  -- so a consumer can tell one it must reproduce from one a column already
+  -- creates. An identity column's options are also reported on that column.
+  --
+  -- Both kinds of ownership count, and PostgreSQL records them differently: a
+  -- serial column's sequence depends on it with deptype 'a', an identity
+  -- column's with 'i'. Reading only 'a' reported every identity sequence as
+  -- standalone.
   'sequences', COALESCE((
     SELECT jsonb_agg(s ORDER BY s->>'schema', s->>'name') FROM (
       SELECT jsonb_build_object(
@@ -168,7 +174,11 @@ SELECT jsonb_pretty(jsonb_build_object(
                        JOIN pg_class dc ON dc.oid = dep.refobjid
                        JOIN pg_attribute da ON da.attrelid = dep.refobjid
                                            AND da.attnum = dep.refobjsubid
-                      WHERE dep.objid = c.oid AND dep.deptype = 'a' LIMIT 1)
+                      WHERE dep.objid = c.oid
+                        AND dep.classid = 'pg_class'::regclass
+                        AND dep.refclassid = 'pg_class'::regclass
+                        AND dep.refobjsubid > 0
+                        AND dep.deptype IN ('a', 'i') LIMIT 1)
       ) AS s
       FROM pg_sequence sq
       JOIN pg_class c ON c.oid = sq.seqrelid

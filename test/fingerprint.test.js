@@ -125,6 +125,31 @@ describe('fingerprint against a live server', { skip: PGURL ? false : 'set PGURL
       `CREATE TABLE t (s text COLLATE "C");`,
       `CREATE TABLE t (s text);`,
     ],
+    // A composite type's attributes are its entire content. They are not
+    // columns of a relation, so the col section cannot see them: it reads
+    // pg_attribute for relkind r/p/v/m/f, and a standalone composite is 'c'.
+    'composite type attributes': [
+      `CREATE TYPE ct AS (street text, city text);`,
+      `CREATE TYPE ct AS (postcode int);`,
+    ],
+    'composite attribute type': [
+      `CREATE TYPE ct AS (a text);`,
+      `CREATE TYPE ct AS (a integer);`,
+    ],
+    // A domain's CHECK lives in pg_constraint keyed by contypid, while the con
+    // section joins conrelid — so domain constraints belong to no section.
+    'domain constraint': [
+      `CREATE DOMAIN d AS integer CHECK (VALUE > 0);`,
+      `CREATE DOMAIN d AS integer CHECK (VALUE < -999);`,
+    ],
+    'domain base type': [
+      `CREATE DOMAIN d AS integer;`,
+      `CREATE DOMAIN d AS text;`,
+    ],
+    'domain constraint added': [
+      `CREATE DOMAIN d AS integer CHECK (VALUE > 0);`,
+      `CREATE DOMAIN d AS integer;`,
+    ],
   }
 
   for (const [what, [left, right]] of Object.entries(discriminations)) {
