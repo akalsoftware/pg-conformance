@@ -139,14 +139,23 @@ PostgreSQL 14 or newer. Tested against 14, 15, 16, 17 and 18 on every change.
 
 Every merge to `main` publishes a patch automatically, so consumers track it without ceremony. `[minor]` or `[major]` in the merge commit subject, or a `release:minor` / `release:major` label on the PR, bumps further. `[skip release]` opts out.
 
-This package is `0.x` while the fingerprint settles. **Depend on it with `~0.0.x`, not `^0.0.x`** — under semver a caret on a `0.0.z` version allows no updates at all, so `^0.0.1` is an exact pin and you would never receive a release:
+This package is `0.x` while the fingerprint settles. From `0.1.0` onwards a
+range behaves as you would expect — `^0.1.0` and `~0.1.0` both track the
+`0.1.x` line:
 
 ```jsonc
-"@akalforge/pg-conformance": "~0.0.1"   // tracks 0.0.2, 0.0.3, ...
-"@akalforge/pg-conformance": "^0.0.1"   // pinned to exactly 0.0.1
+"@akalforge/pg-conformance": "~0.1.0"   // tracks 0.1.1, 0.1.2, ...
 ```
 
-Once it reaches `0.1.0`, `^0.1.0` tracks the `0.1.x` line as you would expect.
+While the package was on `0.0.z` that was not true, and it is worth knowing if
+you find an old pin: under semver a caret on a `0.0.z` version allows no updates
+at all, so `^0.0.1` was an exact pin that would never receive a release. Those
+ranges wanted `~0.0.1`.
+
+A minor bump is how a breaking change is signalled on `0.x`, so a range pinned
+to one minor line will not cross it on its own. `0.1.0` renamed the PHP
+namespace to `Akal\PgConformance`; a consumer on `~0.0.x` keeps the old one
+until it widens the range deliberately.
 
 Consumers pin through their lockfile as usual; a bot bumps that lockfile, so `npm ci` stays reproducible and still moves.
 
