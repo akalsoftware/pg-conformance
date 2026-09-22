@@ -76,7 +76,7 @@ jobs:
           for q in fingerprintSql stateSql; do
             Q="$q" php -r 'require "src/Conformance.php";
               file_put_contents("/tmp/php.sql", call_user_func(
-                [Akalforge\PgConformance\Conformance::class, getenv("Q")], ["public", "app"]));'
+                [Akal\PgConformance\Conformance::class, getenv("Q")], ["public", "app"]));'
             Q="$q" node -e 'import("./index.js").then(async m => {
               const fs = await import("node:fs")
               fs.writeFileSync("/tmp/js.sql", m[process.env.Q](["public", "app"]))
@@ -89,6 +89,6 @@ jobs:
         run: |
           php -r 'require "src/Conformance.php";
                   try {
-                    Akalforge\PgConformance\Conformance::fingerprintSql(["x\"; DROP DATABASE y; --"]);
+                    Akal\PgConformance\Conformance::fingerprintSql(["x\"; DROP DATABASE y; --"]);
                     fwrite(STDERR, "expected a rejection\n"); exit(1);
                   } catch (InvalidArgumentException $e) { echo "rejected as expected\n"; }'

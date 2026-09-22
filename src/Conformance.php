@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Akalforge\PgConformance;
+namespace Akal\PgConformance;
 
 /**
  * Accessor for the shared conformance data.

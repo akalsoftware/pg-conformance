@@ -25,9 +25,19 @@ The fix is not a better fingerprint in each tool. It is one fingerprint.
 npm install @akalforge/pg-conformance
 ```
 
-```bash
-composer require akalforge/pg-conformance
+**PHP consumers install the same npm package.** This is not published to
+Packagist, so `composer require` will not find it — the npm tarball ships
+`src/Conformance.php`, which is how DBDiff consumes it:
+
+```php
+require_once 'node_modules/@akalforge/pg-conformance/src/Conformance.php';
 ```
+
+One package means one version number for both languages, which matters more
+here than idiomatic installation: a corpus whose whole job is to be the single
+shared answer to "are these schemas the same?" should not be publishable at two
+different versions at once. `composer.json` is kept for its autoload map and for
+requiring this from git if you need to.
 
 ## Use
 
@@ -45,7 +55,7 @@ for (const testCase of loadCorpus('hard-cases')) {
 ```
 
 ```php
-use Akalforge\PgConformance\Conformance;
+use Akal\PgConformance\Conformance;
 
 $sql = Conformance::fingerprintSql(['public']);
 $cases = Conformance::loadCorpus('hard-cases');
