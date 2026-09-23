@@ -62,33 +62,56 @@ jobs:
           PGURL: postgresql://pgc:pgc@127.0.0.1:5432/postgres
         run: npm test
 
+      # Three ways to ask for more than a patch, in increasing precedence:
+      # the merge commit message, the pull request title, a label on the pull
+      # request. All three are read, because the first attempt at this read only
+      # the first line of the commit message — and a merge commit's first line is
+      # "Merge pull request #6 from owner/branch", which put the `[minor]` of the
+      # pull request title on line three where nothing looked. It released a
+      # patch carrying a breaking change, silently.
       - name: Decide the bump
         id: bump
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SUBJECT: ${{ github.event.head_commit.message }}
+          MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
-          subject="$(printf '%s' "$SUBJECT" | head -n1)"
 
           bump=patch
-          case "$subject" in
-            *"[major]"*) bump=major ;;
-            *"[minor]"*) bump=minor ;;
+          note="default"
+
+          # The whole message, not just its first line. A squash carries the
+          # marker in the subject; a merge commit carries it in the body.
+          case "$MESSAGE" in
+            *"[major]"*) bump=major; note="[major] in the commit message" ;;
+            *"[minor]"*) bump=minor; note="[minor] in the commit message" ;;
           esac
 
-          # A label on the merged PR wins over the commit subject: it is the
-          # thing a reviewer sets deliberately, and it survives a squash whose
-          # subject someone edited.
-          labels="$(gh pr list --state merged --limit 1 --search "$GITHUB_SHA" \
-                      --json labels --jq '.[].labels[].name' 2>/dev/null || true)"
-          case "$labels" in
-            *release:major*) bump=major ;;
-            *release:minor*) bump=minor ;;
-          esac
+          # The pull request this commit belongs to, resolved by the commit
+          # itself rather than by searching for it. `gh pr list --search <sha>`
+          # goes through the search index, which had not caught up seconds after
+          # a merge, so the labels came back empty and were silently ignored.
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+                  --jq '.[0] // empty' 2>/dev/null || true)"
+
+          if [ -n "$pr" ]; then
+            title="$(printf '%s' "$pr" | jq -r '.title // ""')"
+            case "$title" in
+              *"[major]"*) bump=major; note="[major] in the pull request title" ;;
+              *"[minor]"*) bump=minor; note="[minor] in the pull request title" ;;
+            esac
+
+            # A label wins: it is set deliberately on the pull request, and it
+            # survives someone editing a title or a squash subject.
+            labels="$(printf '%s' "$pr" | jq -r '[.labels[].name] | join(",")')"
+            case ",$labels," in
+              *,release:major,*) bump=major; note="release:major label" ;;
+              *,release:minor,*) bump=minor; note="release:minor label" ;;
+            esac
+          fi
 
           echo "bump=$bump" >> "$GITHUB_OUTPUT"
-          echo "Releasing a $bump"
+          echo "Releasing a $bump ($note)"
 
       - name: Version, tag and publish
         env:
