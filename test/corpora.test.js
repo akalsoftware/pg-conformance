@@ -14,16 +14,24 @@ const PGURL = process.env.PGURL
 
 const migrations = loadCorpus('migrations')
 const equivalences = loadCorpus('equivalences')
+const data = loadCorpus('data')
 
 describe('shape', () => {
   test('ids are unique across both corpora', () => {
-    const ids = [...migrations, ...equivalences].map(c => c.id)
+    const ids = [...migrations, ...equivalences, ...data].map(c => c.id)
     assert.equal(new Set(ids).size, ids.length)
   })
 
   test('every migration has two different schemas and a description', () => {
     for (const c of migrations) {
       assert.ok(c.before && c.after && c.description && c.category, c.id)
+      assert.notEqual(c.before, c.after, c.id)
+    }
+  })
+
+  test('every data case has a schema, two sets of rows and a comparison', () => {
+    for (const c of data) {
+      assert.ok(c.schema && c.before && c.after && c.description && c.compare?.length, c.id)
       assert.notEqual(c.before, c.after, c.id)
     }
   })
@@ -90,6 +98,22 @@ describe('against a live server', { skip: PGURL ? false : 'set PGURL to run' }, 
             `${c.id}: preserve reads ${col}, which the migration recomputes: ${q}`)
         }
       }
+    }
+    await psql('postgres', 'DROP DATABASE IF EXISTS pgc_corpus')
+  })
+
+  // Each side builds, and the two really differ on what is compared: a case
+  // whose rows already agree would pass any tool having tested nothing.
+  test('every data case builds on both sides, and the sides differ', async () => {
+    const major = Math.floor(Number(await psql('postgres', 'SHOW server_version_num')) / 10000)
+    for (const c of data.filter(d => (d.minPgVersion ?? 0) <= major)) {
+      const rows = {}
+      for (const side of ['before', 'after']) {
+        await freshDb('pgc_corpus', c.schema + c[side]).catch(e => assert.fail(`${c.id} ${side}: ${e.message}`))
+        rows[side] = await Promise.all(c.compare.map(q =>
+          psql('pgc_corpus', q).catch(e => assert.fail(`${c.id} ${side} compare: ${e.message}`))))
+      }
+      assert.notDeepEqual(rows.before, rows.after, `${c.id}: the two sides already agree`)
     }
     await psql('postgres', 'DROP DATABASE IF EXISTS pgc_corpus')
   })

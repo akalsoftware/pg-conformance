@@ -35,7 +35,10 @@ export interface OrderingCase {
  */
 export interface MigrationCase {
   id: string
-  category: 'enum' | 'identity' | 'serial' | 'storage' | 'generated' | 'dependants' | 'creation_order' | 'removal_order' | 'foreign_key'
+  category:
+    | 'enum' | 'identity' | 'serial' | 'storage' | 'generated' | 'dependants'
+    | 'creation_order' | 'removal_order' | 'foreign_key'
+    | 'schemas' | 'routines' | 'partitions' | 'rls' | 'triggers' | 'types' | 'sequences' | 'constraints'
   description: string
   before: string
   after: string
@@ -55,12 +58,29 @@ export interface EquivalenceCase {
   rendered: string
 }
 
+/**
+ * Rows a data migration must carry over, both ways. `schema` builds the same
+ * structure on both sides; `before` holds the target's rows and `after` the
+ * source's. Migrating either into the other must leave every `compare` query
+ * returning what it returns on a database built from the other directly.
+ */
+export interface DataCase {
+  id: string
+  description: string
+  schema: string
+  before: string
+  after: string
+  compare: string[]
+  minPgVersion?: number
+}
+
 export interface CorpusByName {
   objects: ObjectCase[]
   'hard-cases': HardCase[]
   ordering: OrderingCase[]
   migrations: MigrationCase[]
   equivalences: EquivalenceCase[]
+  data: DataCase[]
 }
 
 /** One relation and everything attached to it. */

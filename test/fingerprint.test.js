@@ -29,9 +29,12 @@ describe('accessors', () => {
     assert.ok(fingerprintSql().includes(`'public'`))
   })
 
-  test('rejects a schema name that could inject SQL', () => {
-    assert.throws(() => fingerprintSql([`public'; DROP DATABASE x; --`]), /unsupported schema name/)
-    assert.throws(() => fingerprintSql(['has space']), /unsupported schema name/)
+  test('quotes any schema name so it cannot inject SQL, and rejects a backslash', () => {
+    // A quote cannot end the literal early: it is doubled.
+    assert.ok(fingerprintSql([`public'; DROP DATABASE x; --`]).includes(`'public''; DROP DATABASE x; --'`))
+    assert.throws(() => fingerprintSql(['back\\\\slash']), /unsupported schema name/)
+    assert.throws(() => fingerprintSql(['']), /unsupported schema name/)
+    assert.ok(fingerprintSql(['has space']).includes(`'has space'`))
     assert.throws(() => fingerprintSql([]), /non-empty array/)
   })
 

@@ -1,0 +1,122 @@
+[
+  {
+    "id": "text_escaping",
+    "description": "Text a migration must quote rather than mangle: single and double quotes, backslashes, newlines and tabs, non-ASCII and emoji, and an empty string beside a NULL.",
+    "schema": "CREATE TABLE t (id int PRIMARY KEY, v text);",
+    "before": "INSERT INTO t VALUES (1, 'plain'), (2, 'to be deleted'), (3, NULL);",
+    "after": "INSERT INTO t VALUES (1, E'it''s a \"quote\" and a back\\\\slash'), (3, ''), (4, E'line1\\nline2\\ttab'), (5, 'ünïcödé 🎉'), (6, E'trailing backslash \\\\');",
+    "compare": [
+      "SELECT id, v, v IS NULL FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "json_values",
+    "description": "json and jsonb holding quotes, backslashes, nesting, a bare string and a JSON null — distinct from an SQL NULL.",
+    "schema": "CREATE TABLE j (id int PRIMARY KEY, a json, b jsonb);",
+    "before": "INSERT INTO j VALUES (1, '{\"k\": 1}', '{\"k\": 1}'), (2, NULL, NULL);",
+    "after": "INSERT INTO j VALUES (1, '{\"q\": \"it''s \\\"quoted\\\"\", \"n\": [1, {\"x\": null}]}', '{\"q\": \"back\\\\slash\", \"z\": true}'), (2, '\"just a string\"', 'null'), (3, '[]', '{}');",
+    "compare": [
+      "SELECT id, a::text, b::text, a IS NULL, b IS NULL FROM j ORDER BY id"
+    ]
+  },
+  {
+    "id": "array_values",
+    "description": "Arrays whose elements need quoting — commas, braces, quotes, spaces — with NULL elements, an empty array and a two-dimensional one.",
+    "schema": "CREATE TABLE a (id int PRIMARY KEY, t text[], m int[]);",
+    "before": "INSERT INTO a VALUES (1, '{x}', '{1}');",
+    "after": "INSERT INTO a VALUES (1, ARRAY['a,b', '{c}', 'd\"e', 'f g', NULL, ''], '{{1,2},{3,4}}'), (2, '{}', NULL);",
+    "compare": [
+      "SELECT id, t::text, m::text FROM a ORDER BY id"
+    ]
+  },
+  {
+    "id": "binary_values",
+    "description": "bytea, including a zero byte, high bytes and an empty value. A driver may hand these back as a stream rather than a string.",
+    "schema": "CREATE TABLE b (id int PRIMARY KEY, v bytea);",
+    "before": "INSERT INTO b VALUES (1, '\\x00');",
+    "after": "INSERT INTO b VALUES (1, '\\x00ff10'), (2, '\\x'), (3, decode('68656c6c6f00776f726c64', 'hex'));",
+    "compare": [
+      "SELECT id, encode(v, 'hex') FROM b ORDER BY id"
+    ]
+  },
+  {
+    "id": "numeric_extremes",
+    "description": "Values that lose something if they pass through a float or an unquoted literal: high-precision numerics, NaN and infinities, the smallest double, and bigint at both ends.",
+    "schema": "CREATE TABLE n (id int PRIMARY KEY, d numeric, f float8, i bigint);",
+    "before": "INSERT INTO n VALUES (1, 1, 1, 1);",
+    "after": "INSERT INTO n VALUES (1, 123456789012345678901234567890.123456789, 'NaN', 9223372036854775807), (2, -0.000000001, '-Infinity', -9223372036854775808), (3, 'NaN', 1e-300, 0);",
+    "compare": [
+      "SELECT id, d::text, f::text, i::text FROM n ORDER BY id"
+    ]
+  },
+  {
+    "id": "time_values",
+    "description": "timestamptz written in other zones, infinite timestamps and dates, intervals with months and seconds, and a time with a zone.",
+    "schema": "CREATE TABLE tm (id int PRIMARY KEY, ts timestamptz, d date, iv interval, tz timetz);",
+    "before": "INSERT INTO tm VALUES (1, '2020-01-01 00:00+00', '2020-01-01', '1 day', '10:00+00');",
+    "after": "INSERT INTO tm VALUES (1, '2026-01-01 10:00+05:30', 'infinity', '1 year 2 months 3 days 04:05:06.789', '23:59:59.999+14'), (2, '-infinity', '0001-01-01', '-5 years', NULL);",
+    "compare": [
+      "SELECT id, ts AT TIME ZONE 'UTC', d::text, iv::text, tz::text FROM tm ORDER BY id"
+    ]
+  },
+  {
+    "id": "composite_key",
+    "description": "A two-column primary key: rows updated, inserted and deleted by both parts of the key, one of which shares a value with another row.",
+    "schema": "CREATE TABLE c (a int, b text, v text, PRIMARY KEY (a, b));",
+    "before": "INSERT INTO c VALUES (1, 'x', 'uno'), (3, 'z', 'three');",
+    "after": "INSERT INTO c VALUES (1, 'x', 'one'), (1, 'y', 'two'), (2, 'x', NULL);",
+    "compare": [
+      "SELECT a, b, v FROM c ORDER BY a, b"
+    ]
+  },
+  {
+    "id": "no_primary_key",
+    "description": "A table with no key at all, holding duplicate rows. Rows can only be told apart by their values, and a duplicate counts.",
+    "schema": "CREATE TABLE k (x int, y text);",
+    "before": "INSERT INTO k VALUES (1, 'a'), (3, 'c');",
+    "after": "INSERT INTO k VALUES (1, 'a'), (1, 'a'), (2, NULL);",
+    "compare": [
+      "SELECT x, y, count(*) FROM k GROUP BY x, y ORDER BY x, y"
+    ]
+  },
+  {
+    "id": "identity_always",
+    "description": "Rows in a table whose key is GENERATED ALWAYS AS IDENTITY: inserting them with their ids needs OVERRIDING SYSTEM VALUE.",
+    "schema": "CREATE TABLE ia (id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY, v text);",
+    "before": "INSERT INTO ia (v) VALUES ('one');",
+    "after": "INSERT INTO ia (id, v) OVERRIDING SYSTEM VALUE VALUES (1, 'first'), (7, 'seventh');",
+    "compare": [
+      "SELECT id, v FROM ia ORDER BY id"
+    ]
+  },
+  {
+    "id": "generated_column",
+    "description": "A table with a stored generated column. Its values follow from the others: a migration writing them is refused by the server.",
+    "schema": "CREATE TABLE g (id int PRIMARY KEY, a int, twice int GENERATED ALWAYS AS (a * 2) STORED);",
+    "before": "INSERT INTO g (id, a) VALUES (1, 1);",
+    "after": "INSERT INTO g (id, a) VALUES (1, 5), (2, 7);",
+    "compare": [
+      "SELECT id, a, twice FROM g ORDER BY id"
+    ]
+  },
+  {
+    "id": "enum_and_domain_values",
+    "description": "Columns typed by an enum and by a domain over text.",
+    "schema": "CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy'); CREATE DOMAIN code AS text CHECK (VALUE ~ '^[A-Z]+$'); CREATE TABLE ed (id int PRIMARY KEY, m mood, c code);",
+    "before": "INSERT INTO ed VALUES (1, 'sad', 'AB');",
+    "after": "INSERT INTO ed VALUES (1, 'happy', 'XYZ'), (2, NULL, 'Q');",
+    "compare": [
+      "SELECT id, m::text, c::text FROM ed ORDER BY id"
+    ]
+  },
+  {
+    "id": "assorted_types",
+    "description": "uuid, boolean, inet, macaddr, bit strings, money and a range.",
+    "schema": "CREATE TABLE at (id int PRIMARY KEY, u uuid, ok boolean, ip inet, mac macaddr, bits bit varying(8), price money, r int4range);",
+    "before": "INSERT INTO at VALUES (1, NULL, false, NULL, NULL, NULL, NULL, NULL);",
+    "after": "INSERT INTO at VALUES (1, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', true, '192.168.0.1/24', '08:00:2b:01:02:03', B'1011', 12.34, '[1,10)'), (2, NULL, NULL, '::1', NULL, B'', 0, 'empty');",
+    "compare": [
+      "SELECT id, u::text, ok::text, ip::text, mac::text, bits::text, price::numeric::text, r::text FROM at ORDER BY id"
+    ]
+  }
+]
