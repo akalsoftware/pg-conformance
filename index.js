@@ -32,20 +32,26 @@ export function fingerprintSql(schemas = ['public']) {
 /**
  * Quote a schema list for embedding as SQL literals.
  *
- * A name that is not a plain identifier is rejected rather than escaped: none
- * is legitimate here, and accepting one quietly would hide a caller bug. This
- * is the single place either query could take an injection.
+ * Any name PostgreSQL accepts is accepted here — `App Data`, `Ünïcode` — and
+ * quoted by doubling its single quotes, which makes it a literal that cannot
+ * end early. Restricting names to plain identifiers instead made a schema
+ * named with a space impossible to compare at all.
+ *
+ * A backslash is still rejected: with standard_conforming_strings off it would
+ * be an escape inside the literal, and no sane schema name needs one. So is
+ * NUL, which no PostgreSQL name can contain. This is the single place either
+ * query could take an injection.
  */
 function schemaList(schemas) {
   if (!Array.isArray(schemas) || schemas.length === 0) {
     throw new TypeError('expected a non-empty array of schema names')
   }
   for (const s of schemas) {
-    if (typeof s !== 'string' || !/^[A-Za-z_][A-Za-z0-9_$]*$/.test(s)) {
+    if (typeof s !== 'string' || s.length === 0 || /[\\\0]/.test(s)) {
       throw new TypeError(`unsupported schema name ${JSON.stringify(s)}`)
     }
   }
-  return schemas.map(s => `'${s}'`).join(',')
+  return schemas.map(s => `'${s.replaceAll("'", "''")}'`).join(',')
 }
 
 /** Absolute path to the state query, for consumers that shell out to psql. */
@@ -65,7 +71,7 @@ export function stateSql(schemas = ['public']) {
 }
 
 /** Corpus names that ship with this package. */
-export const corpora = ['objects', 'hard-cases', 'ordering', 'migrations', 'equivalences']
+export const corpora = ['objects', 'hard-cases', 'ordering', 'migrations', 'equivalences', 'data']
 
 /**
  * Load one corpus by name.

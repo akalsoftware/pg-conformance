@@ -32,8 +32,11 @@ describe('stateSql accessor', () => {
     assert.ok(sql.includes(`'public','app'`))
   })
 
-  test('rejects a schema name that could inject SQL', () => {
-    assert.throws(() => stateSql([`public'; DROP DATABASE x; --`]), /unsupported schema name/)
+  test('quotes any schema name so it cannot inject SQL, and rejects a backslash', () => {
+    // A quote cannot end the literal early: it is doubled.
+    assert.ok(stateSql([`public'; DROP DATABASE x; --`]).includes(`'public''; DROP DATABASE x; --'`))
+    assert.throws(() => stateSql(['back\\\\slash']), /unsupported schema name/)
+    assert.throws(() => stateSql(['']), /unsupported schema name/)
     assert.throws(() => stateSql([]), /non-empty array/)
   })
 
@@ -68,6 +71,20 @@ describe('state against a live server', { skip: PGURL ? false : 'set PGURL to ru
     assert.equal(doc.tables.length, 1)
     assert.equal(doc.views.length, 1)
     assert.ok(doc.meta.server_version_num > 0)
+  })
+
+  // Names were restricted to plain identifiers, so a schema called
+  // `App Data` could not be described at all. Any name is accepted now, quoted.
+  test('describes a schema whose name needs quoting, and nothing else for a hostile one', async () => {
+    await reset('st_q')
+    await psql('st_q', `CREATE SCHEMA "App Data"; CREATE TABLE "App Data"."Order Items" ("ID" int);
+                        CREATE SCHEMA "it's"; CREATE TABLE "it's".t (id int);`)
+    const doc = JSON.parse(await psql('st_q', stateSql(['App Data', "it's"]).replace(/;\s*$/, '')))
+    assert.deepEqual(doc.tables.map(t => `${t.schema}.${t.name}`).sort(), ["App Data.Order Items", "it's.t"])
+
+    const hostile = JSON.parse(await psql('st_q', stateSql([`x'); DROP SCHEMA "App Data" CASCADE; --`]).replace(/;\s*$/, '')))
+    assert.deepEqual(hostile.tables ?? [], [])
+    assert.equal(await psql('st_q', `SELECT count(*) FROM pg_namespace WHERE nspname = 'App Data'`), '1\n')
   })
 
   test('reports semantic values rather than catalog shorthand', async () => {

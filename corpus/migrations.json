@@ -339,5 +339,68 @@
     "description": "A new table with both a key onto another schema's table and a key over two columns: each reference must keep its schema and every column.",
     "before": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b));",
     "after": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b)); CREATE TABLE profiles (id int, user_id int REFERENCES app.users (id), x int, y int, FOREIGN KEY (x, y) REFERENCES p (a, b));"
+  },
+  {
+    "id": "objects_in_quoted_schema",
+    "category": "schemas",
+    "description": "A schema, table, columns and index whose names need quoting — spaces, capitals, a reserved word, non-ASCII — with a view and a column comment. Every name must stay quoted, in the right schema.",
+    "before": "CREATE SCHEMA \"App Data\"; CREATE TABLE \"App Data\".\"Order Items\" (\"ID\" int PRIMARY KEY, \"Qty\" int, \"select\" text);",
+    "after": "CREATE SCHEMA \"App Data\"; CREATE TABLE \"App Data\".\"Order Items\" (\"ID\" int PRIMARY KEY, \"Qty\" int NOT NULL DEFAULT 1, \"select\" text, \"ünïcödé\" text); CREATE INDEX \"Qty Idx\" ON \"App Data\".\"Order Items\" (\"Qty\"); CREATE VIEW \"App Data\".\"Big Orders\" AS SELECT \"ID\", \"Qty\" FROM \"App Data\".\"Order Items\" WHERE \"Qty\" > 10; COMMENT ON COLUMN \"App Data\".\"Order Items\".\"select\" IS 'reserved word';"
+  },
+  {
+    "id": "objects_in_another_schema",
+    "category": "schemas",
+    "description": "An enum, a table with a deferrable foreign key and a function, all in a schema other than public. A tool that looks only at public reports the two databases identical.",
+    "before": "CREATE SCHEMA app; CREATE TABLE app.accounts (id int PRIMARY KEY);",
+    "after": "CREATE SCHEMA app; CREATE TYPE app.tier AS ENUM ('free', 'pro'); CREATE TABLE app.accounts (id int PRIMARY KEY, tier app.tier NOT NULL DEFAULT 'free'); CREATE TABLE app.invoices (id int PRIMARY KEY, account_id int REFERENCES app.accounts (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED); CREATE FUNCTION app.tier_of(int) RETURNS app.tier LANGUAGE sql STABLE AS $$ SELECT tier FROM app.accounts WHERE id = $1 $$;"
+  },
+  {
+    "id": "function_overloads",
+    "category": "routines",
+    "description": "Three functions of one name told apart by their arguments: one's body changes, one is unchanged, one is new and has a defaulted argument.",
+    "before": "CREATE FUNCTION f(x int) RETURNS int LANGUAGE sql AS $$ SELECT x $$; CREATE FUNCTION f(x text) RETURNS text LANGUAGE sql AS $$ SELECT x $$;",
+    "after": "CREATE FUNCTION f(x int) RETURNS int LANGUAGE sql AS $$ SELECT x + 1 $$; CREATE FUNCTION f(x text) RETURNS text LANGUAGE sql AS $$ SELECT x $$; CREATE FUNCTION f(x int, y int DEFAULT 0) RETURNS int LANGUAGE sql AS $$ SELECT x + y $$;"
+  },
+  {
+    "id": "partitions_added_with_default_and_index",
+    "category": "partitions",
+    "description": "A range-partitioned table gains a partition, a default partition and an index on the parent. The index must reach every partition, the new ones included.",
+    "before": "CREATE TABLE ev (id int, at date NOT NULL, kind text) PARTITION BY RANGE (at); CREATE TABLE ev_2025 PARTITION OF ev FOR VALUES FROM ('2025-01-01') TO ('2026-01-01');",
+    "after": "CREATE TABLE ev (id int, at date NOT NULL, kind text) PARTITION BY RANGE (at); CREATE TABLE ev_2025 PARTITION OF ev FOR VALUES FROM ('2025-01-01') TO ('2026-01-01'); CREATE TABLE ev_2026 PARTITION OF ev FOR VALUES FROM ('2026-01-01') TO ('2027-01-01'); CREATE TABLE ev_other PARTITION OF ev DEFAULT; CREATE INDEX ev_kind ON ev (kind);"
+  },
+  {
+    "id": "rls_forced_with_restrictive_policy",
+    "category": "rls",
+    "description": "Row level security enabled and forced, a permissive SELECT policy and a restrictive INSERT policy with a WITH CHECK.",
+    "before": "CREATE TABLE docs (id int PRIMARY KEY, owner text, body text);",
+    "after": "CREATE TABLE docs (id int PRIMARY KEY, owner text, body text); ALTER TABLE docs ENABLE ROW LEVEL SECURITY; ALTER TABLE docs FORCE ROW LEVEL SECURITY; CREATE POLICY docs_read ON docs FOR SELECT USING (owner = current_user); CREATE POLICY docs_write ON docs AS RESTRICTIVE FOR INSERT WITH CHECK (owner = current_user AND length(body) < 1000);"
+  },
+  {
+    "id": "trigger_with_condition_and_indexed_matview",
+    "category": "triggers",
+    "description": "A trigger on an UPDATE OF one column with a WHEN condition, its function, and a materialized view with a unique index and a comment.",
+    "before": "CREATE TABLE t (id int PRIMARY KEY, n int, touched timestamptz);",
+    "after": "CREATE TABLE t (id int PRIMARY KEY, n int, touched timestamptz); CREATE FUNCTION touch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.touched := now(); RETURN NEW; END $$; CREATE TRIGGER t_touch BEFORE UPDATE OF n ON t FOR EACH ROW WHEN (OLD.n IS DISTINCT FROM NEW.n) EXECUTE FUNCTION touch(); CREATE MATERIALIZED VIEW t_sum AS SELECT count(*) AS c, sum(n) AS s FROM t; CREATE UNIQUE INDEX t_sum_c ON t_sum (c); COMMENT ON MATERIALIZED VIEW t_sum IS 'rollup';"
+  },
+  {
+    "id": "column_types_defaults_and_collation",
+    "category": "types",
+    "description": "Columns with an array default, a jsonb default, an interval default, a domain with its own default and CHECK, an explicit collation and an identity with START and INCREMENT.",
+    "before": "CREATE TABLE ty (id int PRIMARY KEY);",
+    "after": "CREATE DOMAIN pos AS numeric(12,4) DEFAULT 0 CHECK (VALUE >= 0); CREATE TABLE ty (id int PRIMARY KEY, tags text[] DEFAULT '{}', meta jsonb NOT NULL DEFAULT '{\"a\": 1}'::jsonb, wait interval DEFAULT '5 minutes', amt pos, name text COLLATE \"C\", seq_n bigint GENERATED BY DEFAULT AS IDENTITY (START WITH 100 INCREMENT BY 5));"
+  },
+  {
+    "id": "sequence_shared_and_owned_with_options",
+    "category": "sequences",
+    "description": "A standalone sequence with START and CACHE, used by two tables' defaults and owned by one table's column. Its options must survive, and it is a sequence of its own, not a serial.",
+    "before": "CREATE TABLE a (id int PRIMARY KEY);",
+    "after": "CREATE SEQUENCE shared_seq START 1000 CACHE 10; CREATE TABLE a (id int PRIMARY KEY DEFAULT nextval('shared_seq')); CREATE TABLE b (id int PRIMARY KEY DEFAULT nextval('shared_seq')); ALTER SEQUENCE shared_seq OWNED BY a.id;"
+  },
+  {
+    "id": "deferrable_unique_check_and_partial_expression_index",
+    "category": "constraints",
+    "description": "A deferrable UNIQUE constraint, a CHECK across two columns and a partial unique index on an expression.",
+    "before": "CREATE TABLE cu (id int PRIMARY KEY, email text, a int, b int);",
+    "after": "CREATE TABLE cu (id int PRIMARY KEY, email text, a int, b int, CONSTRAINT cu_email UNIQUE (email) DEFERRABLE, CONSTRAINT cu_ab CHECK (a < b)); CREATE UNIQUE INDEX cu_lower ON cu (lower(email)) WHERE email IS NOT NULL;"
   }
 ]
