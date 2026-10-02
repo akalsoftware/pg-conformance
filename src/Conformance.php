@@ -75,7 +75,7 @@ final class Conformance
     }
 
     /** Corpus names that ship with this package. */
-    public const CORPORA = ['objects', 'hard-cases', 'ordering'];
+    public const CORPORA = ['objects', 'hard-cases', 'ordering', 'migrations', 'equivalences'];
 
     /**
      * Load one corpus by name.

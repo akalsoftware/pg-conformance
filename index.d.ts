@@ -27,10 +27,40 @@ export interface OrderingCase {
   requires: Array<[string, string]>
 }
 
+/**
+ * A schema change any migration tool must make in both directions: from
+ * `before` to `after` and back, leaving each identical to a database built
+ * directly from it. `preserve` queries must return the same rows before and
+ * after migrating — the data a correct migration keeps.
+ */
+export interface MigrationCase {
+  id: string
+  category: 'enum' | 'identity' | 'serial' | 'storage' | 'generated' | 'dependants' | 'creation_order' | 'removal_order' | 'foreign_key'
+  description: string
+  before: string
+  after: string
+  preserve?: string[]
+  minPgVersion?: number
+}
+
+/**
+ * One schema written two ways: as a developer writes it and as PostgreSQL
+ * renders it. A tool comparing schemas must call the pair identical.
+ */
+export interface EquivalenceCase {
+  id: string
+  kind: 'check' | 'index' | 'policy' | 'view' | 'domain' | 'generated'
+  description: string
+  written: string
+  rendered: string
+}
+
 export interface CorpusByName {
   objects: ObjectCase[]
   'hard-cases': HardCase[]
   ordering: OrderingCase[]
+  migrations: MigrationCase[]
+  equivalences: EquivalenceCase[]
 }
 
 /** One relation and everything attached to it. */

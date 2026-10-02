@@ -65,7 +65,7 @@ export function stateSql(schemas = ['public']) {
 }
 
 /** Corpus names that ship with this package. */
-export const corpora = ['objects', 'hard-cases', 'ordering']
+export const corpora = ['objects', 'hard-cases', 'ordering', 'migrations', 'equivalences']
 
 /**
  * Load one corpus by name.
