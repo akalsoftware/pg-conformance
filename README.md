@@ -131,7 +131,7 @@ Definitions are flattened to one line, because entries are newline-joined and a 
 
 `ordering` cases give statements in an order that does **not** apply, plus the precedences any correct order must satisfy — a property rather than one expected permutation, so a sorter's tie-breaking can change without invalidating the case.
 
-`migrations` cases give a `before` and an `after` schema. A tool migrating either into the other must leave it identical to a database built from the other directly, and the rows its `preserve` queries return must survive. These are the shapes found to produce SQL that is valid but cannot run, or that runs and loses something.
+`migrations` cases give a `before` and an `after` schema. A tool migrating either into the other must leave it identical to a database built from the other directly, and its `preserve` queries must return the same rows on the migrated database as they did before it was migrated. They read only what a correct migration keeps — never a generated column whose expression changes, which it must recompute. These are the shapes found to produce SQL that is valid but cannot run, or that runs and loses something.
 
 `equivalences` exist because PostgreSQL does not render every expression the same way twice: `status IN ('draft', 'active')` on a `varchar` column renders as `ARRAY[...]::text[]`, and recreated from that, as `ARRAY[(...)::text, ...]`. A dump, a restore or a generated migration changes the text and not the schema. **The fingerprint does not yet call these pairs identical** — it compares renderings — so a consumer comparing a database with a copy of it has to re-render one side (the package's own test reports this as a to-do).
 

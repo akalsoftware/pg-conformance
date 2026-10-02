@@ -147,7 +147,7 @@
     "before": "CREATE TABLE t (id int primary key, a numeric, g numeric GENERATED ALWAYS AS (a * 2) STORED); INSERT INTO t VALUES (1, 2);",
     "after": "CREATE TABLE t (id int primary key, a numeric, g numeric GENERATED ALWAYS AS (a * 3) STORED); INSERT INTO t VALUES (1, 2);",
     "preserve": [
-      "SELECT id, a, g FROM t ORDER BY id"
+      "SELECT id, a FROM t ORDER BY id"
     ]
   },
   {
