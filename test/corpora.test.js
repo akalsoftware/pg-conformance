@@ -64,6 +64,36 @@ describe('against a live server', { skip: PGURL ? false : 'set PGURL to run' }, 
     await psql('postgres', 'DROP DATABASE IF EXISTS pgc_corpus')
   })
 
+  // A preserve query must read only what a correct migration keeps. A stored
+  // generated column whose expression differs between the two sides is
+  // recomputed by any correct migration, so its values change and no tool
+  // could satisfy a query reading it — as generated_expression_changed's did.
+  test('no preserve query reads a generated column the migration recomputes', async () => {
+    const generated = async () => new Map((await psql('pgc_corpus', `
+      SELECT c.relname || '.' || a.attname, coalesce(pg_get_expr(d.adbin, d.adrelid), '')
+      FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+      LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+      WHERE a.attgenerated = 's'`)).split('\n').filter(Boolean).map(l => l.split('|')))
+    const major = Math.floor(Number(await psql('postgres', 'SHOW server_version_num')) / 10000)
+    for (const c of migrations.filter(m => m.preserve && (m.minPgVersion ?? 0) <= major)) {
+      await freshDb('pgc_corpus', c.before)
+      const before = await generated()
+      await freshDb('pgc_corpus', c.after)
+      const after = await generated()
+      const recomputed = [...new Set([...before.keys(), ...after.keys()])]
+        .filter(k => before.get(k) !== after.get(k))
+        .map(k => k.split('.')[1])
+      for (const q of c.preserve) {
+        for (const col of recomputed) {
+          assert.ok(!new RegExp(`\\b${col}\\b`).test(q.replace(/^SELECT\s+/i, '').split(/\s+FROM\s+/i)[0]),
+            `${c.id}: preserve reads ${col}, which the migration recomputes: ${q}`)
+        }
+      }
+    }
+    await psql('postgres', 'DROP DATABASE IF EXISTS pgc_corpus')
+  })
+
   test('every equivalence builds both ways', async () => {
     for (const c of equivalences) {
       for (const side of ['written', 'rendered']) {
