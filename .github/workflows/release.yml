@@ -103,7 +103,9 @@ jobs:
 
             # A label wins: it is set deliberately on the pull request, and it
             # survives someone editing a title or a squash subject.
-            labels="$(printf '%s' "$pr" | jq -r '[.labels[].name] | join(",")')"
+            # `labels` can come back null rather than empty (it did for the
+            # Actions token), and `.labels[]` on null stops the step.
+            labels="$(printf '%s' "$pr" | jq -r '[(.labels // [])[] | .name? // empty] | join(",")')"
             case ",$labels," in
               *,release:major,*) bump=major; note="release:major label" ;;
               *,release:minor,*) bump=minor; note="release:minor label" ;;
