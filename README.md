@@ -126,8 +126,14 @@ Definitions are flattened to one line, because entries are newline-joined and a 
 | `objects` | 20 | creating each object kind from an empty schema |
 | `hard-cases` | 90 | DDL that is awkward to reproduce — identity options, generated columns, exclusion constraints, partitioning of all three strategies and multi-level, inheritance, collations, storage and TOAST parameters, compression, every index method, interval and range types, domains over domains, function overloads, `INSTEAD OF` and constraint triggers, restrictive policies |
 | `ordering` | 12 | dependency ordering, with names chosen to defeat text matching |
+| `migrations` | 37 | schema changes a migration tool must make in both directions — enum labels removed or reordered under views, policies and keys; identity, serial and storage changes; generated columns; types and functions created before, and dropped after, what uses them; cross-schema and multi-column foreign keys |
+| `equivalences` | 6 | one schema written two ways — as a developer writes it and as PostgreSQL renders it — which a comparison must call identical |
 
 `ordering` cases give statements in an order that does **not** apply, plus the precedences any correct order must satisfy — a property rather than one expected permutation, so a sorter's tie-breaking can change without invalidating the case.
+
+`migrations` cases give a `before` and an `after` schema. A tool migrating either into the other must leave it identical to a database built from the other directly, and the rows its `preserve` queries return must survive. These are the shapes found to produce SQL that is valid but cannot run, or that runs and loses something.
+
+`equivalences` exist because PostgreSQL does not render every expression the same way twice: `status IN ('draft', 'active')` on a `varchar` column renders as `ARRAY[...]::text[]`, and recreated from that, as `ARRAY[(...)::text, ...]`. A dump, a restore or a generated migration changes the text and not the schema. **The fingerprint does not yet call these pairs identical** — it compares renderings — so a consumer comparing a database with a copy of it has to re-render one side (the package's own test reports this as a to-do).
 
 Cases carry `minPgVersion` where they need a particular server.
 

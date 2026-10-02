@@ -1,0 +1,44 @@
+[
+  {
+    "id": "in_list_on_varchar_check",
+    "kind": "check",
+    "description": "A CHECK constraint with IN (...) on a varchar column, as written and as PostgreSQL renders it. Recreated from that rendering it renders differently again (ARRAY[...]::text[] becomes ARRAY[(...)::text, ...]), so a dump, restore or migration changes the text, not the schema.",
+    "written": "CREATE TABLE t (status varchar(20), n int, CONSTRAINT c CHECK (status IN ('draft', 'active')));",
+    "rendered": "CREATE TABLE t (status varchar(20), n int, CONSTRAINT c CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'active'::character varying])::text[]))));"
+  },
+  {
+    "id": "in_list_on_varchar_index",
+    "kind": "index",
+    "description": "A partial index with IN (...) on a varchar column, as written and as PostgreSQL renders it. Recreated from that rendering it renders differently again (ARRAY[...]::text[] becomes ARRAY[(...)::text, ...]), so a dump, restore or migration changes the text, not the schema.",
+    "written": "CREATE TABLE t (status varchar(20), n int); CREATE INDEX i ON t (n) WHERE status IN ('draft', 'active');",
+    "rendered": "CREATE TABLE t (status varchar(20), n int); CREATE INDEX i ON t (n) WHERE ((status)::text = ANY ((ARRAY['draft'::character varying, 'active'::character varying])::text[]));"
+  },
+  {
+    "id": "in_list_on_varchar_policy",
+    "kind": "policy",
+    "description": "A RLS policy with IN (...) on a varchar column, as written and as PostgreSQL renders it. Recreated from that rendering it renders differently again (ARRAY[...]::text[] becomes ARRAY[(...)::text, ...]), so a dump, restore or migration changes the text, not the schema.",
+    "written": "CREATE TABLE t (status varchar(20)); ALTER TABLE t ENABLE ROW LEVEL SECURITY; CREATE POLICY p ON t USING (status IN ('draft', 'active'));",
+    "rendered": "CREATE TABLE t (status varchar(20)); ALTER TABLE t ENABLE ROW LEVEL SECURITY; CREATE POLICY p ON t USING (((status)::text = ANY ((ARRAY['draft'::character varying, 'active'::character varying])::text[])));"
+  },
+  {
+    "id": "in_list_on_varchar_view",
+    "kind": "view",
+    "description": "A view with IN (...) on a varchar column, as written and as PostgreSQL renders it. Recreated from that rendering it renders differently again (ARRAY[...]::text[] becomes ARRAY[(...)::text, ...]), so a dump, restore or migration changes the text, not the schema.",
+    "written": "CREATE TABLE t (status varchar(20)); CREATE VIEW v AS SELECT * FROM t WHERE status IN ('draft', 'active');",
+    "rendered": "CREATE TABLE t (status varchar(20)); CREATE VIEW v AS SELECT t.status FROM t WHERE ((t.status)::text = ANY ((ARRAY['draft'::character varying, 'active'::character varying])::text[]));"
+  },
+  {
+    "id": "in_list_on_varchar_domain",
+    "kind": "domain",
+    "description": "A domain CHECK with IN (...) on a varchar column, as written and as PostgreSQL renders it. Recreated from that rendering it renders differently again (ARRAY[...]::text[] becomes ARRAY[(...)::text, ...]), so a dump, restore or migration changes the text, not the schema.",
+    "written": "CREATE DOMAIN d AS varchar(20) CHECK (VALUE IN ('draft', 'active')); CREATE TABLE t (status d);",
+    "rendered": "CREATE DOMAIN d AS varchar(20) CHECK (((VALUE)::text = ANY ((ARRAY['draft'::character varying, 'active'::character varying])::text[]))); CREATE TABLE t (status d);"
+  },
+  {
+    "id": "in_list_on_varchar_generated",
+    "kind": "generated",
+    "description": "A stored generated column with IN (...) on a varchar column, as written and as PostgreSQL renders it. Recreated from that rendering it renders differently again (ARRAY[...]::text[] becomes ARRAY[(...)::text, ...]), so a dump, restore or migration changes the text, not the schema.",
+    "written": "CREATE TABLE t (status varchar(20), ok boolean GENERATED ALWAYS AS (status IN ('draft', 'active')) STORED);",
+    "rendered": "CREATE TABLE t (status varchar(20), ok boolean GENERATED ALWAYS AS (((status)::text = ANY ((ARRAY['draft'::character varying, 'active'::character varying])::text[]))) STORED);"
+  }
+]

@@ -1,0 +1,301 @@
+[
+  {
+    "id": "enum_label_removed",
+    "category": "enum",
+    "description": "An enum loses a label while columns, an array column and defaults use it. There is no DROP VALUE: the columns move to a new type, keeping every row.",
+    "before": "CREATE TYPE st AS ENUM ('new', 'paid', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');",
+    "after": "CREATE TYPE st AS ENUM ('new', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');",
+    "preserve": [
+      "SELECT id, s::text, arr::text, s2::text FROM o ORDER BY id"
+    ]
+  },
+  {
+    "id": "enum_labels_reordered",
+    "category": "enum",
+    "description": "An enum's labels are reordered; the type's sort order changes, the rows do not.",
+    "before": "CREATE TYPE st AS ENUM ('new', 'paid', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');",
+    "after": "CREATE TYPE st AS ENUM ('shipped','paid','new');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');",
+    "preserve": [
+      "SELECT id, s::text, arr::text, s2::text FROM o ORDER BY id"
+    ]
+  },
+  {
+    "id": "enum_label_added",
+    "category": "enum",
+    "description": "An enum gains a label (ALTER TYPE ... ADD VALUE ... AFTER). Its reverse is a removal.",
+    "before": "CREATE TYPE st AS ENUM ('new', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');",
+    "after": "CREATE TYPE st AS ENUM ('new', 'paid', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');",
+    "preserve": [
+      "SELECT id, s::text, arr::text, s2::text FROM o ORDER BY id"
+    ]
+  },
+  {
+    "id": "enum_label_removed_under_readers",
+    "category": "enum",
+    "description": "A label removal with views, a materialized view, a policy, a trigger condition, a generated column, a partial index, a CHECK, a unique key and a foreign key from another table all using the columns.",
+    "before": "CREATE TYPE st AS ENUM ('new', 'paid', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');CREATE VIEW v AS SELECT id, s FROM o WHERE s2 IS NOT NULL; CREATE VIEW v2 AS SELECT * FROM v; CREATE MATERIALIZED VIEW mv AS SELECT s FROM o; CREATE INDEX mv_s ON mv (s); ALTER TABLE o ENABLE ROW LEVEL SECURITY; CREATE POLICY p ON o USING (s = 'new'); CREATE FUNCTION tf() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$; CREATE TRIGGER tr BEFORE UPDATE ON o FOR EACH ROW WHEN (NEW.s = 'new') EXECUTE FUNCTION tf(); ALTER TABLE o ADD COLUMN g boolean GENERATED ALWAYS AS (s = 'new') STORED; CREATE INDEX o_p ON o (id) WHERE s = 'shipped'; ALTER TABLE o ADD CONSTRAINT o_ck CHECK (s <> 'shipped' OR s2 IS NOT NULL); ALTER TABLE o ADD CONSTRAINT o_u UNIQUE (s, id); CREATE TABLE r (id int, s st, FOREIGN KEY (s, id) REFERENCES o (s, id));",
+    "after": "CREATE TYPE st AS ENUM ('new', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');CREATE VIEW v AS SELECT id, s FROM o WHERE s2 IS NOT NULL; CREATE VIEW v2 AS SELECT * FROM v; CREATE MATERIALIZED VIEW mv AS SELECT s FROM o; CREATE INDEX mv_s ON mv (s); ALTER TABLE o ENABLE ROW LEVEL SECURITY; CREATE POLICY p ON o USING (s = 'new'); CREATE FUNCTION tf() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$; CREATE TRIGGER tr BEFORE UPDATE ON o FOR EACH ROW WHEN (NEW.s = 'new') EXECUTE FUNCTION tf(); ALTER TABLE o ADD COLUMN g boolean GENERATED ALWAYS AS (s = 'new') STORED; CREATE INDEX o_p ON o (id) WHERE s = 'shipped'; ALTER TABLE o ADD CONSTRAINT o_ck CHECK (s <> 'shipped' OR s2 IS NOT NULL); ALTER TABLE o ADD CONSTRAINT o_u UNIQUE (s, id); CREATE TABLE r (id int, s st, FOREIGN KEY (s, id) REFERENCES o (s, id));",
+    "preserve": [
+      "SELECT id, s::text, s2::text FROM o ORDER BY id"
+    ]
+  },
+  {
+    "id": "enum_label_added_under_readers",
+    "category": "enum",
+    "description": "The same readers, with a label added instead; reverting it is a removal under all of them.",
+    "before": "CREATE TYPE st AS ENUM ('new', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');CREATE VIEW v AS SELECT id, s FROM o WHERE s2 IS NOT NULL; CREATE VIEW v2 AS SELECT * FROM v; CREATE MATERIALIZED VIEW mv AS SELECT s FROM o; CREATE INDEX mv_s ON mv (s); ALTER TABLE o ENABLE ROW LEVEL SECURITY; CREATE POLICY p ON o USING (s = 'new'); CREATE FUNCTION tf() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$; CREATE TRIGGER tr BEFORE UPDATE ON o FOR EACH ROW WHEN (NEW.s = 'new') EXECUTE FUNCTION tf(); ALTER TABLE o ADD COLUMN g boolean GENERATED ALWAYS AS (s = 'new') STORED; CREATE INDEX o_p ON o (id) WHERE s = 'shipped'; ALTER TABLE o ADD CONSTRAINT o_ck CHECK (s <> 'shipped' OR s2 IS NOT NULL); ALTER TABLE o ADD CONSTRAINT o_u UNIQUE (s, id); CREATE TABLE r (id int, s st, FOREIGN KEY (s, id) REFERENCES o (s, id));",
+    "after": "CREATE TYPE st AS ENUM ('new', 'paid', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');CREATE VIEW v AS SELECT id, s FROM o WHERE s2 IS NOT NULL; CREATE VIEW v2 AS SELECT * FROM v; CREATE MATERIALIZED VIEW mv AS SELECT s FROM o; CREATE INDEX mv_s ON mv (s); ALTER TABLE o ENABLE ROW LEVEL SECURITY; CREATE POLICY p ON o USING (s = 'new'); CREATE FUNCTION tf() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$; CREATE TRIGGER tr BEFORE UPDATE ON o FOR EACH ROW WHEN (NEW.s = 'new') EXECUTE FUNCTION tf(); ALTER TABLE o ADD COLUMN g boolean GENERATED ALWAYS AS (s = 'new') STORED; CREATE INDEX o_p ON o (id) WHERE s = 'shipped'; ALTER TABLE o ADD CONSTRAINT o_ck CHECK (s <> 'shipped' OR s2 IS NOT NULL); ALTER TABLE o ADD CONSTRAINT o_u UNIQUE (s, id); CREATE TABLE r (id int, s st, FOREIGN KEY (s, id) REFERENCES o (s, id));",
+    "preserve": [
+      "SELECT id, s::text, s2::text FROM o ORDER BY id"
+    ]
+  },
+  {
+    "id": "enum_label_removed_with_constraint_naming_it",
+    "category": "enum",
+    "description": "The label being removed is named by a CHECK and a partial index that go with it; they cannot be put back around the swap.",
+    "before": "CREATE TYPE st AS ENUM ('new', 'paid', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');ALTER TABLE o ADD CONSTRAINT ck_paid CHECK (s <> 'paid'); CREATE INDEX o_paid ON o (id) WHERE s = 'paid';",
+    "after": "CREATE TYPE st AS ENUM ('new', 'shipped');CREATE TABLE o (id int PRIMARY KEY, s st NOT NULL DEFAULT 'new', arr st[] DEFAULT '{new}', s2 st); INSERT INTO o VALUES (1,'new','{new,shipped}','shipped'),(2,'shipped',NULL,'new');"
+  },
+  {
+    "id": "identity_kind_changed",
+    "category": "identity",
+    "description": "GENERATED BY DEFAULT becomes ALWAYS on a column with rows. Dropping and re-adding the identity restarts the sequence and the next insert collides.",
+    "before": "CREATE TABLE t (id int GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "after": "CREATE TABLE t (id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "preserve": [
+      "SELECT id, v FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "identity_options_changed",
+    "category": "identity",
+    "description": "An identity gains INCREMENT BY 10; the sequence keeps its position.",
+    "before": "CREATE TABLE t (id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "after": "CREATE TABLE t (id int GENERATED ALWAYS AS IDENTITY (INCREMENT BY 10) PRIMARY KEY, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "preserve": [
+      "SELECT id, v FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "identity_retyped",
+    "category": "identity",
+    "description": "An identity column goes from int to bigint.",
+    "before": "CREATE TABLE t (id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "after": "CREATE TABLE t (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "preserve": [
+      "SELECT id, v FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "plain_column_becomes_identity",
+    "category": "identity",
+    "description": "A plain integer key with rows becomes an identity; its sequence must start past the existing values.",
+    "before": "CREATE TABLE t (id int PRIMARY KEY, v int); INSERT INTO t VALUES (1,1),(2,2);",
+    "after": "CREATE TABLE t (id int GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, v int);",
+    "preserve": [
+      "SELECT id, v FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "serial_becomes_identity",
+    "category": "serial",
+    "description": "A serial column becomes an identity: its default and owned sequence go, the identity starts past the rows.",
+    "before": "CREATE TABLE t (id serial PRIMARY KEY, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "after": "CREATE TABLE t (id int GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, v int);",
+    "preserve": [
+      "SELECT id, v FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "identity_becomes_serial",
+    "category": "serial",
+    "description": "An identity becomes a serial column: a sequence owned by it, a nextval default, started past the rows.",
+    "before": "CREATE TABLE t (id int GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "after": "CREATE TABLE t (id serial PRIMARY KEY, v int);",
+    "preserve": [
+      "SELECT id, v FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "serial_becomes_bigserial",
+    "category": "serial",
+    "description": "serial becomes bigserial. ALTER COLUMN TYPE does not retype the sequence, which must follow or it still stops at 2^31.",
+    "before": "CREATE TABLE t (id serial, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "after": "CREATE TABLE t (id bigserial, v int);INSERT INTO t (v) SELECT g FROM generate_series(1,5) g;",
+    "preserve": [
+      "SELECT id, v FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "column_storage_and_compression",
+    "category": "storage",
+    "description": "A column gains COMPRESSION lz4 and another STORAGE EXTERNAL.",
+    "before": "CREATE TABLE t (id int, body text, blob bytea);",
+    "after": "CREATE TABLE t (id int, body text COMPRESSION lz4, blob bytea); ALTER TABLE t ALTER COLUMN blob SET STORAGE EXTERNAL;"
+  },
+  {
+    "id": "retype_resets_storage_and_compression",
+    "category": "storage",
+    "description": "A column is retyped and must keep its storage and compression, which ALTER COLUMN TYPE resets to the new type's defaults.",
+    "before": "CREATE TABLE t (id int, body varchar(200));",
+    "after": "CREATE TABLE t (id int, body text COMPRESSION lz4); ALTER TABLE t ALTER COLUMN body SET STORAGE EXTERNAL;"
+  },
+  {
+    "id": "generated_expression_changed",
+    "category": "generated",
+    "description": "A stored generated column's expression changes; it can only be dropped and re-added, recomputed.",
+    "before": "CREATE TABLE t (id int primary key, a numeric, g numeric GENERATED ALWAYS AS (a * 2) STORED); INSERT INTO t VALUES (1, 2);",
+    "after": "CREATE TABLE t (id int primary key, a numeric, g numeric GENERATED ALWAYS AS (a * 3) STORED); INSERT INTO t VALUES (1, 2);",
+    "preserve": [
+      "SELECT id, a, g FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "plain_column_becomes_generated",
+    "category": "generated",
+    "description": "A plain column becomes a stored generated one.",
+    "before": "CREATE TABLE t (id int, a int, b int GENERATED ALWAYS AS (a*2) STORED); INSERT INTO t (id,a) VALUES (1,2);",
+    "after": "CREATE TABLE t (id int, a int, b int); INSERT INTO t VALUES (1,2,4);"
+  },
+  {
+    "id": "generated_column_becomes_plain",
+    "category": "generated",
+    "description": "A stored generated column becomes plain (DROP EXPRESSION), keeping its values.",
+    "before": "CREATE TABLE t (id int, a int, b int); INSERT INTO t VALUES (1,2,4);",
+    "after": "CREATE TABLE t (id int, a int, b int GENERATED ALWAYS AS (a*2) STORED); INSERT INTO t (id,a) VALUES (1,2);"
+  },
+  {
+    "id": "retype_under_views_and_policies",
+    "category": "dependants",
+    "description": "Columns retyped (numeric precision, text to uuid) under a security_invoker view with grants and a policy, which PostgreSQL refuses to retype under.",
+    "before": "CREATE TABLE t (id int PRIMARY KEY, a numeric(10,2), uid text); CREATE VIEW v WITH (security_invoker=true) AS SELECT id, a FROM t; GRANT SELECT ON v TO PUBLIC; ALTER TABLE t ENABLE ROW LEVEL SECURITY; CREATE POLICY p ON t USING (uid IS NOT NULL);",
+    "after": "CREATE TABLE t (id int PRIMARY KEY, a numeric(12,2), uid uuid); CREATE VIEW v WITH (security_invoker=true) AS SELECT id, a FROM t; GRANT SELECT ON v TO PUBLIC; ALTER TABLE t ENABLE ROW LEVEL SECURITY; CREATE POLICY p ON t USING (uid IS NOT NULL);",
+    "minPgVersion": 15
+  },
+  {
+    "id": "retype_partitioned_column",
+    "category": "dependants",
+    "description": "A column retyped on a partitioned table read by a view; the partitions follow the parent.",
+    "before": "CREATE TABLE p (id int, a numeric(10,2)) PARTITION BY RANGE (id); CREATE TABLE p1 PARTITION OF p FOR VALUES FROM (0) TO (100); CREATE VIEW pv AS SELECT a FROM p;",
+    "after": "CREATE TABLE p (id int, a numeric(12,2)) PARTITION BY RANGE (id); CREATE TABLE p1 PARTITION OF p FOR VALUES FROM (0) TO (100); CREATE VIEW pv AS SELECT a FROM p;"
+  },
+  {
+    "id": "new_enum_typed_column",
+    "category": "creation_order",
+    "description": "A new column typed by a new enum: the type is created first, and dropped last when reverting.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE TYPE e AS ENUM ('a'); CREATE TABLE t (id int, c e);"
+  },
+  {
+    "id": "new_domain_over_new_enum",
+    "category": "creation_order",
+    "description": "A new column typed by a new domain over a new enum.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE TYPE e AS ENUM ('a'); CREATE DOMAIN d AS e; CREATE TABLE t (id int, c d);"
+  },
+  {
+    "id": "new_sequence_default",
+    "category": "creation_order",
+    "description": "A new column defaulting to nextval() of a new sequence.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE SEQUENCE s; CREATE TABLE t (id int DEFAULT nextval('s'));"
+  },
+  {
+    "id": "new_function_in_default",
+    "category": "creation_order",
+    "description": "A new column whose default calls a new function: the function must exist first, although functions are otherwise created after tables.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE FUNCTION f() RETURNS int LANGUAGE sql IMMUTABLE AS $$ SELECT 7 $$;CREATE TABLE t (id int DEFAULT f());"
+  },
+  {
+    "id": "new_function_in_check",
+    "category": "creation_order",
+    "description": "A new CHECK constraint calling a new function.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE FUNCTION f() RETURNS int LANGUAGE sql IMMUTABLE AS $$ SELECT 7 $$;CREATE TABLE t (id int CHECK (id < f() * 100));"
+  },
+  {
+    "id": "new_function_in_index",
+    "category": "creation_order",
+    "description": "A new expression index calling a new function.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE FUNCTION f() RETURNS int LANGUAGE sql IMMUTABLE AS $$ SELECT 7 $$;CREATE TABLE t (id int); CREATE INDEX t_f ON t ((id + f()));"
+  },
+  {
+    "id": "new_function_with_arguments_in_default",
+    "category": "creation_order",
+    "description": "A new default calling a new function with arguments, identified by its signature.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE FUNCTION addn(x integer) RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT x + 1 $$; CREATE TABLE t (id int DEFAULT addn(1));"
+  },
+  {
+    "id": "new_trigger_and_its_function",
+    "category": "creation_order",
+    "description": "A new trigger with its new trigger function.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE TABLE t (id int); CREATE FUNCTION tfn() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$; CREATE TRIGGER tr BEFORE INSERT ON t FOR EACH ROW EXECUTE FUNCTION tfn();"
+  },
+  {
+    "id": "removed_enum_used_everywhere",
+    "category": "removal_order",
+    "description": "An enum the desired schema no longer has, used by a domain, a column, a function argument and a view: it is dropped last, and recreated first when reverting.",
+    "before": "CREATE TYPE e AS ENUM ('a','b'); CREATE DOMAIN d AS e; CREATE TABLE t (id int, c e); CREATE FUNCTION fe(x e) RETURNS int LANGUAGE sql AS $$ SELECT 1 $$; CREATE VIEW v AS SELECT id, c, 'a'::e AS k FROM t;",
+    "after": "CREATE TABLE t (id int);"
+  },
+  {
+    "id": "removed_sequence_and_function_in_defaults",
+    "category": "removal_order",
+    "description": "A sequence and a function used only by defaults of columns that go too.",
+    "before": "CREATE SEQUENCE s; CREATE FUNCTION g() RETURNS int LANGUAGE sql AS $$ SELECT 1 $$; CREATE TABLE t (id int DEFAULT nextval('s'), x int DEFAULT g());",
+    "after": "CREATE TABLE t (id int);"
+  },
+  {
+    "id": "removed_table_typed_by_removed_enum",
+    "category": "removal_order",
+    "description": "A table with a view on it, typed by an enum that goes with it.",
+    "before": "CREATE TYPE e AS ENUM ('a'); CREATE TABLE t (id int); CREATE TABLE t2 (id int, c e); CREATE VIEW v2 AS SELECT * FROM t2;",
+    "after": "CREATE TABLE t (id int);"
+  },
+  {
+    "id": "removed_function_reading_removed_table",
+    "category": "removal_order",
+    "description": "A SQL function reading a table that goes too; when reverting, the table must be back before the function body is validated.",
+    "before": "CREATE TABLE t (id int); CREATE TABLE t2 (id int); CREATE FUNCTION n() RETURNS bigint LANGUAGE sql AS $$ SELECT count(*) FROM t2 $$;",
+    "after": "CREATE TABLE t (id int);"
+  },
+  {
+    "id": "removed_trigger_on_removed_table",
+    "category": "removal_order",
+    "description": "A trigger and its function on a table that goes too.",
+    "before": "CREATE TABLE t (id int); CREATE TABLE t2 (id int); CREATE FUNCTION tfn() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$; CREATE TRIGGER tr BEFORE INSERT ON t2 FOR EACH ROW EXECUTE FUNCTION tfn();",
+    "after": "CREATE TABLE t (id int);"
+  },
+  {
+    "id": "removed_composite_over_removed_enum",
+    "category": "removal_order",
+    "description": "A column typed by a composite holding an enum; all three go.",
+    "before": "CREATE TYPE e AS ENUM ('a'); CREATE TYPE c AS (x e, y int); CREATE TABLE t (id int, v c);",
+    "after": "CREATE TABLE t (id int);"
+  },
+  {
+    "id": "removed_function_in_check_and_index",
+    "category": "removal_order",
+    "description": "A function used by a CHECK and an expression index that go first.",
+    "before": "CREATE FUNCTION lim() RETURNS int LANGUAGE sql IMMUTABLE AS $$ SELECT 10 $$; CREATE TABLE t (id int CHECK (id < lim())); CREATE INDEX t_l ON t ((id + lim()));",
+    "after": "CREATE TABLE t (id int);"
+  },
+  {
+    "id": "foreign_key_onto_another_schema",
+    "category": "foreign_key",
+    "description": "A foreign key onto a table in another schema, as every Supabase table referencing auth.users has; the reference must keep its schema.",
+    "before": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b)); CREATE TABLE profiles (id int, user_id int);",
+    "after": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b)); CREATE TABLE profiles (id int, user_id int REFERENCES app.users (id));"
+  },
+  {
+    "id": "foreign_key_over_two_columns",
+    "category": "foreign_key",
+    "description": "A foreign key over two columns; the reference must list both.",
+    "before": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b)); CREATE TABLE c (x int, y int);",
+    "after": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b)); CREATE TABLE c (x int, y int, FOREIGN KEY (x, y) REFERENCES p (a, b));"
+  }
+]
