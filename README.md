@@ -137,25 +137,37 @@ PostgreSQL 14 or newer. Tested against 14, 15, 16, 17 and 18 on every change.
 
 ## Releases
 
-Every merge to `main` publishes a patch automatically, so consumers track it without ceremony. `[minor]` or `[major]` in the merge commit subject, or a `release:minor` / `release:major` label on the PR, bumps further. `[skip release]` opts out.
+Every merge to `main` publishes a patch automatically, so consumers track it
+without ceremony. To ask for more than a patch, use any of these — the last one
+wins, and is the one to rely on:
 
-This package is `0.x` while the fingerprint settles. From `0.1.0` onwards a
-range behaves as you would expect — `^0.1.0` and `~0.1.0` both track the
-`0.1.x` line:
+| How | Where |
+| --- | --- |
+| `[minor]` / `[major]` | anywhere in the commit message |
+| `[minor]` / `[major]` | in the pull request title |
+| `release:minor` / `release:major` | a label on the pull request |
+
+`[skip release]` opts out.
+
+This package is `0.x` while the fingerprint settles. **Depend on it with
+`~0.0.x`, not `^0.0.x`** — under semver a caret on a `0.0.z` version allows no
+updates at all, so `^0.0.6` is an exact pin and you would never receive a
+release:
 
 ```jsonc
-"@akalforge/pg-conformance": "~0.1.0"   // tracks 0.1.1, 0.1.2, ...
+"@akalforge/pg-conformance": "~0.0.6"   // tracks 0.0.7, 0.0.8, ...
+"@akalforge/pg-conformance": "^0.0.6"   // pinned to exactly 0.0.6
 ```
 
-While the package was on `0.0.z` that was not true, and it is worth knowing if
-you find an old pin: under semver a caret on a `0.0.z` version allows no updates
-at all, so `^0.0.1` was an exact pin that would never receive a release. Those
-ranges wanted `~0.0.1`.
+Once it reaches `0.1.0`, `^0.1.0` tracks the `0.1.x` line as you would expect.
 
-A minor bump is how a breaking change is signalled on `0.x`, so a range pinned
-to one minor line will not cross it on its own. `0.1.0` renamed the PHP
-namespace to `Akal\PgConformance`; a consumer on `~0.0.x` keeps the old one
-until it widens the range deliberately.
+`0.0.6` renamed the PHP namespace to `Akal\PgConformance`. A breaking change on
+`0.x` should raise the minor, and that release was asked to — but the bump
+detection read only the first line of the merge commit, which is
+`Merge pull request …`, so the marker went unseen and a patch went out. The
+detection is fixed; this is recorded because the version number cannot tell that
+story on its own, and a reader wondering why a rename sits in a patch deserves
+an answer.
 
 Consumers pin through their lockfile as usual; a bot bumps that lockfile, so `npm ci` stays reproducible and still moves.
 
