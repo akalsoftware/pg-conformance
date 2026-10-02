@@ -126,7 +126,7 @@ Definitions are flattened to one line, because entries are newline-joined and a 
 | `objects` | 20 | creating each object kind from an empty schema |
 | `hard-cases` | 90 | DDL that is awkward to reproduce — identity options, generated columns, exclusion constraints, partitioning of all three strategies and multi-level, inheritance, collations, storage and TOAST parameters, compression, every index method, interval and range types, domains over domains, function overloads, `INSTEAD OF` and constraint triggers, restrictive policies |
 | `ordering` | 12 | dependency ordering, with names chosen to defeat text matching |
-| `migrations` | 37 | schema changes a migration tool must make in both directions — enum labels removed or reordered under views, policies and keys; identity, serial and storage changes; generated columns; types and functions created before, and dropped after, what uses them; cross-schema and multi-column foreign keys |
+| `migrations` | 43 | schema changes a migration tool must make in both directions — enum labels removed or reordered under views, policies and keys; identity, serial and storage changes; generated columns; types and functions created before, and dropped after, what uses them; cross-schema and multi-column foreign keys |
 | `equivalences` | 6 | one schema written two ways — as a developer writes it and as PostgreSQL renders it — which a comparison must call identical |
 
 `ordering` cases give statements in an order that does **not** apply, plus the precedences any correct order must satisfy — a property rather than one expected permutation, so a sorter's tie-breaking can change without invalidating the case.

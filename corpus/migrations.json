@@ -236,6 +236,41 @@
     "after": "CREATE TABLE t (id int); CREATE FUNCTION tfn() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$; CREATE TRIGGER tr BEFORE INSERT ON t FOR EACH ROW EXECUTE FUNCTION tfn();"
   },
   {
+    "id": "new_table_typed_by_new_enum",
+    "category": "creation_order",
+    "description": "A new table with a column typed by a new enum: the type is created before the table, and dropped after it when reverting.",
+    "before": "CREATE TABLE keep (id int);",
+    "after": "CREATE TABLE keep (id int); CREATE TYPE e AS ENUM ('a'); CREATE TABLE t (id int, c e);"
+  },
+  {
+    "id": "new_domain_typed_column",
+    "category": "creation_order",
+    "description": "A new column typed by a new domain with a CHECK: the domain is created first, and dropped last when reverting.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE DOMAIN d AS int CHECK (VALUE > 0); CREATE TABLE t (id int, c d);"
+  },
+  {
+    "id": "new_function_with_defaulted_argument_in_default_and_check",
+    "category": "creation_order",
+    "description": "A new function whose second argument has a default, called with one argument from a column default and a CHECK: identified by its full signature, and created before both.",
+    "before": "CREATE TABLE t (id int);",
+    "after": "CREATE FUNCTION addn(x integer, y text DEFAULT $$a$$) RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT x + 1 $$; CREATE TABLE t (id int DEFAULT addn(1), c int CHECK (c < addn(100)));"
+  },
+  {
+    "id": "default_changed_to_call_new_function",
+    "category": "creation_order",
+    "description": "An existing column's default changes to call a new function: the function is created before the default is set, and dropped after it is restored when reverting.",
+    "before": "CREATE TABLE t (id int DEFAULT 0);",
+    "after": "CREATE FUNCTION addn(x integer, y text DEFAULT $$a$$) RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT x + 1 $$; CREATE TABLE t (id int DEFAULT addn(5));"
+  },
+  {
+    "id": "new_function_reading_new_table",
+    "category": "creation_order",
+    "description": "A new SQL function reading a new table: SQL function bodies are checked when created, so the table comes first, and goes last when reverting.",
+    "before": "CREATE TABLE keep (id int);",
+    "after": "CREATE TABLE keep (id int); CREATE TABLE t (id int); CREATE FUNCTION n() RETURNS bigint LANGUAGE sql AS $$ SELECT count(*) FROM t $$;"
+  },
+  {
     "id": "removed_enum_used_everywhere",
     "category": "removal_order",
     "description": "An enum the desired schema no longer has, used by a domain, a column, a function argument and a view: it is dropped last, and recreated first when reverting.",
@@ -297,5 +332,12 @@
     "description": "A foreign key over two columns; the reference must list both.",
     "before": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b)); CREATE TABLE c (x int, y int);",
     "after": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b)); CREATE TABLE c (x int, y int, FOREIGN KEY (x, y) REFERENCES p (a, b));"
+  },
+  {
+    "id": "foreign_keys_on_new_table",
+    "category": "foreign_key",
+    "description": "A new table with both a key onto another schema's table and a key over two columns: each reference must keep its schema and every column.",
+    "before": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b));",
+    "after": "CREATE SCHEMA app; CREATE TABLE app.users (id int PRIMARY KEY); CREATE TABLE p (a int, b int, PRIMARY KEY (a, b)); CREATE TABLE profiles (id int, user_id int REFERENCES app.users (id), x int, y int, FOREIGN KEY (x, y) REFERENCES p (a, b));"
   }
 ]
