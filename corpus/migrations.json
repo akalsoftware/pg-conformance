@@ -437,5 +437,15 @@
     "preserve": [
       "SELECT id FROM t ORDER BY id"
     ]
+  },
+  {
+    "id": "comment_on_a_column_added_last",
+    "category": "comments",
+    "description": "A commented column the target gains after its other columns, so its position differs from the source's. The same comment on the same column is no difference: comments are compared by the column's name, never its position.",
+    "before": "CREATE TABLE t (id int PRIMARY KEY, note text); INSERT INTO t VALUES (1, 'a');",
+    "after": "CREATE TABLE t (id int PRIMARY KEY, tier text NOT NULL DEFAULT 'free', note text); COMMENT ON COLUMN t.tier IS 'billing tier'; COMMENT ON COLUMN t.note IS 'free text'; INSERT INTO t VALUES (1, 'free', 'a');",
+    "preserve": [
+      "SELECT id, note FROM t ORDER BY id"
+    ]
   }
 ]
