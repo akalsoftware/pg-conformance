@@ -447,5 +447,59 @@
     "preserve": [
       "SELECT id, note FROM t ORDER BY id"
     ]
+  },
+  {
+    "id": "check_added_not_valid",
+    "category": "constraints",
+    "description": "A check added NOT VALID over a row it does not hold for. It must arrive NOT VALID: validated, as it would be inside CREATE TABLE, it would refuse the row it was added beside.",
+    "before": "CREATE TABLE t (id int PRIMARY KEY, n int); INSERT INTO t VALUES (1, -5), (2, 3);",
+    "after": "CREATE TABLE t (id int PRIMARY KEY, n int); INSERT INTO t VALUES (1, -5), (2, 3); ALTER TABLE t ADD CONSTRAINT t_n_positive CHECK (n > 0) NOT VALID;",
+    "preserve": [
+      "SELECT id, n FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "circular_foreign_keys",
+    "category": "constraints",
+    "description": "Two new tables referencing each other. No order creates both with their keys: one key is added once both exist, and the reverse drops it before either table.",
+    "before": "CREATE TABLE unrelated (id int PRIMARY KEY);",
+    "after": "CREATE TABLE unrelated (id int PRIMARY KEY); CREATE TABLE a (id int PRIMARY KEY, b_id int); CREATE TABLE b (id int PRIMARY KEY, a_id int REFERENCES a (id) DEFERRABLE INITIALLY DEFERRED); ALTER TABLE a ADD CONSTRAINT a_b_fk FOREIGN KEY (b_id) REFERENCES b (id) DEFERRABLE INITIALLY DEFERRED;"
+  },
+  {
+    "id": "subpartitioned_partition_added",
+    "category": "partitions",
+    "description": "A partition that is partitioned in turn, with partitions of its own. Created as a plain partition, its own partitions have nowhere to go.",
+    "before": "CREATE TABLE h (id int, r text, s text) PARTITION BY LIST (r); CREATE TABLE h_us PARTITION OF h FOR VALUES IN ('us'); INSERT INTO h VALUES (1, 'us', 'a');",
+    "after": "CREATE TABLE h (id int, r text, s text) PARTITION BY LIST (r); CREATE TABLE h_us PARTITION OF h FOR VALUES IN ('us'); CREATE TABLE h_eu PARTITION OF h FOR VALUES IN ('eu') PARTITION BY LIST (s); CREATE TABLE h_eu_a PARTITION OF h_eu FOR VALUES IN ('a'); CREATE TABLE h_eu_b PARTITION OF h_eu FOR VALUES IN ('b'); INSERT INTO h VALUES (1, 'us', 'a');",
+    "preserve": [
+      "SELECT id, r, s FROM h ORDER BY id"
+    ]
+  },
+  {
+    "id": "partition_added_with_its_own_constraint_and_index",
+    "category": "partitions",
+    "description": "A new partition carrying a check and an index of its own, beside the parent's index it inherits. Declared against the parent alone, it arrives without them.",
+    "before": "CREATE TABLE h (id int, d date, n int) PARTITION BY RANGE (d); CREATE INDEX h_d ON h (d); CREATE TABLE h_2024 PARTITION OF h FOR VALUES FROM ('2024-01-01') TO ('2025-01-01'); INSERT INTO h VALUES (1, '2024-03-01', 2);",
+    "after": "CREATE TABLE h (id int, d date, n int) PARTITION BY RANGE (d); CREATE INDEX h_d ON h (d); CREATE TABLE h_2024 PARTITION OF h FOR VALUES FROM ('2024-01-01') TO ('2025-01-01'); CREATE TABLE h_2025 PARTITION OF h FOR VALUES FROM ('2025-01-01') TO ('2026-01-01'); ALTER TABLE h_2025 ADD CONSTRAINT h_2025_n CHECK (n > 0); CREATE INDEX h_2025_own ON h_2025 (n); INSERT INTO h VALUES (1, '2024-03-01', 2);",
+    "preserve": [
+      "SELECT id, d, n FROM h ORDER BY id"
+    ]
+  },
+  {
+    "id": "exclusion_constraint_needing_an_extension",
+    "category": "extensions",
+    "description": "An exclusion constraint whose operator class comes from btree_gist. The extension is installed first, and the reverse drops it after the constraint.",
+    "before": "CREATE TABLE bookings (id int PRIMARY KEY, room int, during tsrange);",
+    "after": "CREATE EXTENSION IF NOT EXISTS btree_gist; CREATE TABLE bookings (id int PRIMARY KEY, room int, during tsrange, cancelled boolean DEFAULT false, CONSTRAINT no_double_booking EXCLUDE USING gist (room WITH =, during WITH &&) WHERE (NOT cancelled));"
+  },
+  {
+    "id": "serial_default_dropped",
+    "category": "identity",
+    "description": "A serial column's default dropped. The sequence stays, still owned by the column; dropping it too loses its position.",
+    "before": "CREATE TABLE t (id serial PRIMARY KEY, v int); INSERT INTO t (v) VALUES (1), (2);",
+    "after": "CREATE TABLE t (id serial PRIMARY KEY, v int); INSERT INTO t (v) VALUES (1), (2); ALTER TABLE t ALTER id DROP DEFAULT;",
+    "preserve": [
+      "SELECT id, v FROM t ORDER BY id"
+    ]
   }
 ]
