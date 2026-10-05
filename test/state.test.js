@@ -185,3 +185,47 @@ describe('state against a live server', { skip: PGURL ? false : 'set PGURL to ru
     assert.deepEqual(missed, [], 'state must not be blind where the fingerprint is not')
   })
 })
+
+describe('fingerprint comments against a live server', { skip: PGURL ? false : 'set PGURL to run' }, () => {
+  // Keyed by its position, a column's comment differed when the column had
+  // been added last on one side, and a migration that reproduced the schema
+  // exactly was refused as not converging.
+  test('names a column by its name, not its position', async () => {
+    await reset('fc_a'); await reset('fc_b')
+    await psql('fc_a', `CREATE TABLE t (id int, tier text); COMMENT ON COLUMN t.tier IS 'billing tier';`)
+    await psql('fc_b', `CREATE TABLE t (id int, gone text, tier text); ALTER TABLE t DROP COLUMN gone;
+                        COMMENT ON COLUMN t.tier IS 'billing tier';`)
+    assert.equal(await fpOf('fc_a'), await fpOf('fc_b'))
+  })
+
+  test('covers comments on every kind of object, and only the schemas asked for', async () => {
+    const base = `CREATE TABLE t (id int CONSTRAINT t_pos CHECK (id > 0));
+                  CREATE FUNCTION f() RETURNS int LANGUAGE sql AS $$ SELECT 1 $$;
+                  CREATE TYPE e AS ENUM ('a');
+                  CREATE FUNCTION tf() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
+                  CREATE TRIGGER tr BEFORE INSERT ON t FOR EACH ROW EXECUTE FUNCTION tf();
+                  ALTER TABLE t ENABLE ROW LEVEL SECURITY; CREATE POLICY p ON t USING (true);
+                  CREATE SCHEMA other; CREATE TABLE other.o (id int);`
+    await reset('fc_c')
+    await psql('fc_c', base)
+    const plain = await fpOf('fc_c')
+    for (const comment of [
+      `COMMENT ON FUNCTION f() IS 'x'`, `COMMENT ON TYPE e IS 'x'`, `COMMENT ON CONSTRAINT t_pos ON t IS 'x'`,
+      `COMMENT ON TRIGGER tr ON t IS 'x'`, `COMMENT ON POLICY p ON t IS 'x'`, `COMMENT ON SCHEMA public IS 'x'`,
+    ]) {
+      await reset('fc_d')
+      await psql('fc_d', `${base} ${comment};`)
+      assert.notEqual(await fpOf('fc_d'), plain, comment)
+    }
+    await reset('fc_d')
+    await psql('fc_d', `${base} COMMENT ON TABLE other.o IS 'x';`)
+    assert.equal(await fpOf('fc_d'), plain, 'a schema not asked for')
+  })
+
+  test("leaves an extension's own comments alone", async () => {
+    await reset('fc_e'); await reset('fc_f')
+    await psql('fc_e', 'CREATE EXTENSION pg_trgm;')
+    await psql('fc_f', `CREATE EXTENSION pg_trgm; COMMENT ON FUNCTION similarity(text, text) IS 'changed';`)
+    assert.equal(await fpOf('fc_e'), await fpOf('fc_f'))
+  })
+})

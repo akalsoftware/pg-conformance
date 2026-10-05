@@ -221,13 +221,25 @@ SELECT string_agg(line, E'\n' ORDER BY line) AS fingerprint FROM (
 
   UNION ALL
 
-  -- Comments. Cheap to carry, and they are part of the schema people read.
-  SELECT format('cmt %s.%s#%s %s',
-                n.nspname, c.relname, d.objsubid,
+  -- Comments, on anything in the schemas: tables and columns, and functions,
+  -- types, constraints, triggers, policies and the schemas themselves. Named
+  -- as PostgreSQL identifies the object, so a column by its name: keyed by
+  -- its position, the same comment on a column added last on one side read
+  -- as a difference. An extension's objects are its own.
+  SELECT format('cmt %s %s %s', i.type, i.identity,
                 btrim(regexp_replace(d.description, '\s+', ' ', 'g')))
     FROM pg_description d
-    JOIN pg_class c ON c.oid = d.objoid
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-   WHERE n.nspname IN (__SCHEMAS__)
+    CROSS JOIN LATERAL pg_identify_object(d.classoid, d.objoid, d.objsubid) i
+   WHERE (i.schema IN (__SCHEMAS__)
+          -- A trigger or a policy has no schema of its own: its table's.
+          OR (SELECT n.nspname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+               WHERE c.oid = CASE d.classoid
+                               WHEN 'pg_trigger'::regclass THEN (SELECT tgrelid FROM pg_trigger WHERE oid = d.objoid)
+                               WHEN 'pg_policy'::regclass THEN (SELECT polrelid FROM pg_policy WHERE oid = d.objoid)
+                             END) IN (__SCHEMAS__)
+          OR (d.classoid = 'pg_namespace'::regclass
+              AND d.objoid IN (SELECT oid FROM pg_namespace WHERE nspname IN (__SCHEMAS__))))
+     AND NOT EXISTS (SELECT 1 FROM pg_depend e
+                      WHERE e.deptype = 'e' AND e.classid = d.classoid AND e.objid = d.objoid)
 
 ) entries;
