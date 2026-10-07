@@ -501,5 +501,15 @@
     "preserve": [
       "SELECT id, v FROM t ORDER BY id"
     ]
+  },
+  {
+    "id": "quoted_identifiers",
+    "category": "names",
+    "description": "Names holding double quotes, spaces and capitals: a table, its columns, a check and a unique constraint, an index, a view, an enum type, a policy and comments. Each must be written with its quotes doubled; one written between plain quotes is a syntax error that fails the whole migration.",
+    "before": "CREATE TABLE \"Odd \"\"t\"\"\" (id int PRIMARY KEY); INSERT INTO \"Odd \"\"t\"\"\" (id) VALUES (1), (2);",
+    "after": "CREATE TYPE \"Mood \"\"m\"\"\" AS ENUM ('a', 'b');CREATE TABLE \"Odd \"\"t\"\"\" (id int PRIMARY KEY, \"Col \"\"c\"\"\" text CONSTRAINT \"chk \"\"x\"\"\" CHECK (\"Col \"\"c\"\"\" <> ''), \"m \"\"q\"\"\" \"Mood \"\"m\"\"\", CONSTRAINT \"uq \"\"u\"\"\" UNIQUE (\"Col \"\"c\"\"\")); INSERT INTO \"Odd \"\"t\"\"\" (id) VALUES (1), (2);CREATE INDEX \"ix \"\"i\"\"\" ON \"Odd \"\"t\"\"\" (\"m \"\"q\"\"\");CREATE VIEW \"v \"\"w\"\"\" AS SELECT id, \"Col \"\"c\"\"\" FROM \"Odd \"\"t\"\"\";ALTER TABLE \"Odd \"\"t\"\"\" ENABLE ROW LEVEL SECURITY;CREATE POLICY \"say \"\"hi\"\" there\" ON \"Odd \"\"t\"\"\" FOR SELECT USING (true);COMMENT ON POLICY \"say \"\"hi\"\" there\" ON \"Odd \"\"t\"\"\" IS 'a \"quoted\" note';COMMENT ON COLUMN \"Odd \"\"t\"\"\".\"Col \"\"c\"\"\" IS 'c';",
+    "preserve": [
+      "SELECT id FROM \"Odd \"\"t\"\"\" ORDER BY id"
+    ]
   }
 ]
