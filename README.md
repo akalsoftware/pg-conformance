@@ -22,7 +22,7 @@ The fix is not a better fingerprint in each tool. It is one fingerprint.
 ## Install
 
 ```bash
-npm install @akalforge/pg-conformance
+npm install @akal/pg-conformance
 ```
 
 **PHP consumers install the same npm package.** This is not published to
@@ -30,7 +30,7 @@ Packagist, so `composer require` will not find it — the npm tarball ships
 `src/Conformance.php`, which is how DBDiff consumes it:
 
 ```php
-require_once 'node_modules/@akalforge/pg-conformance/src/Conformance.php';
+require_once 'node_modules/@akal/pg-conformance/src/Conformance.php';
 ```
 
 One package means one version number for both languages, which matters more
@@ -42,7 +42,7 @@ requiring this from git if you need to.
 ## Use
 
 ```js
-import { fingerprintSql, loadCorpus } from '@akalforge/pg-conformance'
+import { fingerprintSql, loadCorpus } from '@akal/pg-conformance'
 
 const sql = fingerprintSql(['public'])
 const a = await query(sourceDb, sql)
@@ -70,7 +70,7 @@ If you shell out to `psql`, use `fingerprintSqlPath` and substitute `__SCHEMAS__
 `fingerprintSql()` answers *are these the same?*. `stateSql()` answers *what is there?* — the same catalog knowledge shaped as a JSON document, so a consumer can compute its own diff instead of trusting someone else's idea of what changed.
 
 ```js
-import { stateSql } from '@akalforge/pg-conformance'
+import { stateSql } from '@akal/pg-conformance'
 
 const before = JSON.parse(await query(db, stateSql(['public'])))
 // ... apply a migration ...
@@ -164,8 +164,8 @@ updates at all, so `^0.0.6` is an exact pin and you would never receive a
 release:
 
 ```jsonc
-"@akalforge/pg-conformance": "~0.0.6"   // tracks 0.0.7, 0.0.8, ...
-"@akalforge/pg-conformance": "^0.0.6"   // pinned to exactly 0.0.6
+"@akal/pg-conformance": "~0.0.6"   // tracks 0.0.7, 0.0.8, ...
+"@akal/pg-conformance": "^0.0.6"   // pinned to exactly 0.0.6
 ```
 
 Once it reaches `0.1.0`, `^0.1.0` tracks the `0.1.x` line as you would expect.
@@ -184,7 +184,7 @@ Consumers pin through their lockfile as usual; a bot bumps that lockfile, so `np
 
 ```bash
 npm link                                  # in this repo
-npm link @akalforge/pg-conformance        # in the consumer
+npm link @akal/pg-conformance        # in the consumer
 ```
 
 Run the package's own tests against a real server:

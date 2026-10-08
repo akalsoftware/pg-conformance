@@ -1,5 +1,5 @@
 /**
- * @akalforge/pg-conformance
+ * @akal/pg-conformance
  *
  * Data only: a schema fingerprint query and a corpus of DDL cases. There is no
  * runner here on purpose — property-based and example-based harnesses
