@@ -1,4 +1,4 @@
-# @akalforge/pg-conformance
+# pg-conformance
 
 A PostgreSQL schema **fingerprint** and a **DDL conformance corpus**, shared by tools that need to agree on whether two schemas are the same.
 
