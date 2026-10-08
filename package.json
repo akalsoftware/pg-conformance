@@ -1,5 +1,5 @@
 {
-  "name": "@akalforge/pg-conformance",
+  "name": "@akal/pg-conformance",
   "version": "0.0.14",
   "description": "A PostgreSQL schema fingerprint and DDL conformance corpus, shared by tools that need to agree on whether two schemas are the same.",
   "type": "module",
@@ -36,7 +36,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/akalforge/pg-conformance.git"
+    "url": "git+https://github.com/akalsoftware/pg-conformance.git"
+  },
+  "homepage": "https://github.com/akalsoftware/pg-conformance#readme",
+  "bugs": {
+    "url": "https://github.com/akalsoftware/pg-conformance/issues"
   },
   "engines": {
     "node": ">=18"
