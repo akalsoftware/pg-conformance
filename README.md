@@ -103,7 +103,7 @@ Two conventions, both learned from getting them wrong:
 
 **Inherited defaults are `null`, not spelled out.** A column that merely uses the database collation reports `null` rather than `"default"` — otherwise every text column in an unchanged schema reads as different.
 
-The state document is verified to distinguish **every pair of corpus schemas the fingerprint distinguishes** — 4005 pairs, zero misses — so adopting it loses nothing the fingerprint already caught. It is also byte-stable: identical schemas produce identical documents.
+The state document is verified to distinguish **every pair of corpus schemas the fingerprint distinguishes**, so adopting it loses nothing the fingerprint already caught. It is also byte-stable: identical schemas produce identical documents.
 
 Existing schema APIs are not a substitute. `information_schema` cannot express a partition bound, identity sequence options, storage, compression or collation, and `postgres-meta` reads `relkind`/`relrowsecurity` but not `relpartbound`, `relpersistence` or `reloptions`, no identity options, and does not model sequences at all.
 
@@ -121,14 +121,14 @@ Definitions are flattened to one line, because entries are newline-joined and a 
 
 ## The corpora
 
-| corpus | cases | what it is for |
-| --- | --- | --- |
-| `objects` | 20 | creating each object kind from an empty schema |
-| `hard-cases` | 90 | DDL that is awkward to reproduce — identity options, generated columns, exclusion constraints, partitioning of all three strategies and multi-level, inheritance, collations, storage and TOAST parameters, compression, every index method, interval and range types, domains over domains, function overloads, `INSTEAD OF` and constraint triggers, restrictive policies |
-| `ordering` | 12 | dependency ordering, with names chosen to defeat text matching |
-| `migrations` | 52 | schema changes a migration tool must make in both directions — enum labels removed or reordered under views, policies and keys; identity, serial and storage changes; generated columns; types and functions created before, and dropped after, what uses them; cross-schema and multi-column foreign keys; objects in other schemas and in quoted ones; overloads, partitions, RLS, triggers, sequences and constraints |
-| `equivalences` | 6 | one schema written two ways — as a developer writes it and as PostgreSQL renders it — which a comparison must call identical |
-| `data` | 12 | rows a data migration must carry over both ways — text needing quoting, JSON, arrays, binary, numeric extremes, time zones, composite and missing keys, identity and generated columns, enums, domains and other types |
+| corpus | what it is for |
+| --- | --- |
+| `objects` | creating each object kind from an empty schema |
+| `hard-cases` | DDL that is awkward to reproduce — identity options, generated columns, exclusion constraints, partitioning of all three strategies and multi-level, inheritance, collations, storage and TOAST parameters, compression, every index method, interval and range types, domains over domains, function overloads, `INSTEAD OF` and constraint triggers, restrictive policies |
+| `ordering` | dependency ordering, with names chosen to defeat text matching |
+| `migrations` | schema changes a migration tool must make in both directions — enum labels removed or reordered under views, policies and keys; identity, serial and storage changes; generated columns; types and functions created before, and dropped after, what uses them; cross-schema and multi-column foreign keys; objects in other schemas and in quoted ones; overloads, partitions, RLS, triggers, sequences and constraints |
+| `equivalences` | one schema written two ways — as a developer writes it and as PostgreSQL renders it — which a comparison must call identical |
+| `data` | rows a data migration must carry over both ways — text needing quoting, JSON, arrays, binary, numeric extremes, time zones, composite and missing keys, identity and generated columns, enums, domains and other types |
 
 `ordering` cases give statements in an order that does **not** apply, plus the precedences any correct order must satisfy — a property rather than one expected permutation, so a sorter's tie-breaking can change without invalidating the case.
 
@@ -170,21 +170,13 @@ release:
 
 Once it reaches `0.1.0`, `^0.1.0` tracks the `0.1.x` line as you would expect.
 
-`0.0.6` renamed the PHP namespace to `Akal\PgConformance`. A breaking change on
-`0.x` should raise the minor, and that release was asked to — but the bump
-detection read only the first line of the merge commit, which is
-`Merge pull request …`, so the marker went unseen and a patch went out. The
-detection is fixed; this is recorded because the version number cannot tell that
-story on its own, and a reader wondering why a rename sits in a patch deserves
-an answer.
-
 Consumers pin through their lockfile as usual; a bot bumps that lockfile, so `npm ci` stays reproducible and still moves.
 
 ## Local development
 
 ```bash
 npm link                                  # in this repo
-npm link @akal/pg-conformance        # in the consumer
+npm link @akal/pg-conformance             # in the consumer
 ```
 
 Run the package's own tests against a real server:
