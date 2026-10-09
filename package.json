@@ -1,6 +1,6 @@
 {
   "name": "@akal/pg-conformance",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "A PostgreSQL schema fingerprint and DDL conformance corpus, shared by tools that need to agree on whether two schemas are the same.",
   "type": "module",
   "main": "index.js",
