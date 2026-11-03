@@ -555,7 +555,7 @@
     "category": "partitions",
     "description": "A partitioned table with rows in a partition created with PARTITION OF and one attached afterwards gains a column with a default. It is added once, on the parent; PostgreSQL refuses it on a partition.",
     "before": "CREATE TABLE p (id int, at date NOT NULL) PARTITION BY RANGE (at); CREATE TABLE p_1 PARTITION OF p FOR VALUES FROM ('2020-01-01') TO ('2021-01-01'); CREATE TABLE p_2 (id int, at date NOT NULL); ALTER TABLE p ATTACH PARTITION p_2 FOR VALUES FROM ('2021-01-01') TO ('2022-01-01'); INSERT INTO p VALUES (1,'2020-06-01'),(2,'2021-06-01');",
-    "after": "CREATE TABLE p (id int, at date NOT NULL, note text DEFAULT 'x') PARTITION BY RANGE (at); CREATE TABLE p_1 PARTITION OF p FOR VALUES FROM ('2020-01-01') TO ('2021-01-01'); CREATE TABLE p_2 PARTITION OF p FOR VALUES FROM ('2021-01-01') TO ('2022-01-01'); INSERT INTO p (id, at) VALUES (1,'2020-06-01'),(2,'2021-06-01');",
+    "after": "CREATE TABLE p (id int, at date NOT NULL) PARTITION BY RANGE (at); CREATE TABLE p_1 PARTITION OF p FOR VALUES FROM ('2020-01-01') TO ('2021-01-01'); CREATE TABLE p_2 (id int, at date NOT NULL); ALTER TABLE p ATTACH PARTITION p_2 FOR VALUES FROM ('2021-01-01') TO ('2022-01-01'); ALTER TABLE p ADD COLUMN note text DEFAULT 'x'; INSERT INTO p (id, at) VALUES (1,'2020-06-01'),(2,'2021-06-01');",
     "preserve": [
       "SELECT id, at FROM p ORDER BY id"
     ]
