@@ -511,5 +511,61 @@
     "preserve": [
       "SELECT id FROM \"Odd \"\"t\"\"\" ORDER BY id"
     ]
+  },
+  {
+    "id": "array_columns_keep_their_modifiers",
+    "category": "types",
+    "description": "Array columns whose element type has a modifier — length, precision and scale, fractional seconds, bit length — are added to a table with rows. The modifier is part of the column's type, and losing it is invisible to a comparison that reads the catalog's internal array name.",
+    "before": "CREATE TABLE t (id int PRIMARY KEY); INSERT INTO t VALUES (1),(2);",
+    "after": "CREATE TABLE t (id int PRIMARY KEY, a varchar(20)[], b numeric(10,2)[], c timestamptz(3)[], d bit(4)[]); INSERT INTO t VALUES (1,NULL,NULL,NULL,NULL),(2,NULL,NULL,NULL,NULL);",
+    "preserve": [
+      "SELECT id FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "array_modifier_tightened",
+    "category": "types",
+    "description": "An unbounded varchar[] column becomes varchar(20)[], with rows that fit.",
+    "before": "CREATE TABLE t (id int PRIMARY KEY, tags varchar[]); INSERT INTO t VALUES (1,'{a,bc}'),(2,NULL);",
+    "after": "CREATE TABLE t (id int PRIMARY KEY, tags varchar(20)[]); INSERT INTO t VALUES (1,'{a,bc}'),(2,NULL);",
+    "preserve": [
+      "SELECT id, tags::text FROM t ORDER BY id"
+    ]
+  },
+  {
+    "id": "mixed_case_domains_and_their_arrays",
+    "category": "names",
+    "description": "Columns typed by domains whose names need quoting, and an array of a mixed-case enum. Written bare, \"Name\" is PostgreSQL's own 63-byte name type.",
+    "before": "CREATE DOMAIN \"Name\" AS varchar(50); CREATE DOMAIN \"Flag\" AS boolean NOT NULL; CREATE TYPE \"Mood\" AS ENUM ('a','b');",
+    "after": "CREATE DOMAIN \"Name\" AS varchar(50); CREATE DOMAIN \"Flag\" AS boolean NOT NULL; CREATE TYPE \"Mood\" AS ENUM ('a','b'); CREATE TABLE store (id int PRIMARY KEY, n \"Name\", f \"Flag\" DEFAULT false, aliases \"Name\"[], moods \"Mood\"[]);",
+    "preserve": []
+  },
+  {
+    "id": "domain_in_use_gains_not_valid_check",
+    "category": "constraints",
+    "description": "A domain used by a column with rows gains a CHECK added NOT VALID, which a row already breaks. Only ALTER DOMAIN can add it: the domain cannot be dropped while the column uses it, and CREATE DOMAIN does not accept NOT VALID.",
+    "before": "CREATE DOMAIN \"Phone\" AS varchar(25); CREATE TABLE person (id int PRIMARY KEY, phone \"Phone\"); INSERT INTO person VALUES (1,'0123'),(2,'');",
+    "after": "CREATE DOMAIN \"Phone\" AS varchar(25); CREATE TABLE person (id int PRIMARY KEY, phone \"Phone\"); INSERT INTO person VALUES (1,'0123'),(2,''); ALTER DOMAIN \"Phone\" ADD CONSTRAINT phone_not_blank CHECK (VALUE <> '') NOT VALID;",
+    "preserve": [
+      "SELECT id, phone FROM person ORDER BY id"
+    ]
+  },
+  {
+    "id": "partitioned_table_gains_a_column",
+    "category": "partitions",
+    "description": "A partitioned table with rows in a partition created with PARTITION OF and one attached afterwards gains a column with a default. It is added once, on the parent; PostgreSQL refuses it on a partition.",
+    "before": "CREATE TABLE p (id int, at date NOT NULL) PARTITION BY RANGE (at); CREATE TABLE p_1 PARTITION OF p FOR VALUES FROM ('2020-01-01') TO ('2021-01-01'); CREATE TABLE p_2 (id int, at date NOT NULL); ALTER TABLE p ATTACH PARTITION p_2 FOR VALUES FROM ('2021-01-01') TO ('2022-01-01'); INSERT INTO p VALUES (1,'2020-06-01'),(2,'2021-06-01');",
+    "after": "CREATE TABLE p (id int, at date NOT NULL) PARTITION BY RANGE (at); CREATE TABLE p_1 PARTITION OF p FOR VALUES FROM ('2020-01-01') TO ('2021-01-01'); CREATE TABLE p_2 (id int, at date NOT NULL); ALTER TABLE p ATTACH PARTITION p_2 FOR VALUES FROM ('2021-01-01') TO ('2022-01-01'); ALTER TABLE p ADD COLUMN note text DEFAULT 'x'; INSERT INTO p (id, at) VALUES (1,'2020-06-01'),(2,'2021-06-01');",
+    "preserve": [
+      "SELECT id, at FROM p ORDER BY id"
+    ]
+  },
+  {
+    "id": "partitions_in_another_schema",
+    "category": "schemas",
+    "description": "Hash partitions of a public table kept in a schema of their own, as GitLab does. The parent is named in its own schema, not the partition's.",
+    "before": "CREATE SCHEMA parts;",
+    "after": "CREATE SCHEMA parts; CREATE TABLE ev (id bigint NOT NULL, k int) PARTITION BY HASH (id); CREATE TABLE parts.ev_0 PARTITION OF ev FOR VALUES WITH (modulus 2, remainder 0); CREATE TABLE parts.ev_1 PARTITION OF ev FOR VALUES WITH (modulus 2, remainder 1);",
+    "preserve": []
   }
 ]
