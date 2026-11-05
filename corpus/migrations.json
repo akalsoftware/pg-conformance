@@ -567,5 +567,21 @@
     "before": "CREATE SCHEMA parts;",
     "after": "CREATE SCHEMA parts; CREATE TABLE ev (id bigint NOT NULL, k int) PARTITION BY HASH (id); CREATE TABLE parts.ev_0 PARTITION OF ev FOR VALUES WITH (modulus 2, remainder 0); CREATE TABLE parts.ev_1 PARTITION OF ev FOR VALUES WITH (modulus 2, remainder 1);",
     "preserve": []
+  },
+  {
+    "id": "owned_sequence_with_options_of_its_own",
+    "category": "sequences",
+    "description": "A new table whose id comes from a sequence it owns that starts at 1000. The sequence is not a serial: created as one, the copy gets a second sequence counting from 1 and the original is left unowned.",
+    "before": "CREATE TABLE users (id bigint PRIMARY KEY);",
+    "after": "CREATE TABLE users (id bigint PRIMARY KEY); CREATE TABLE organizations (id bigint NOT NULL, name text NOT NULL); CREATE SEQUENCE organizations_id_seq START WITH 1000 MINVALUE 1000; ALTER SEQUENCE organizations_id_seq OWNED BY organizations.id; ALTER TABLE organizations ALTER COLUMN id SET DEFAULT nextval('organizations_id_seq'::regclass); ALTER TABLE organizations ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);",
+    "preserve": []
+  },
+  {
+    "id": "partitioned_table_owns_a_sequence_named_for_its_old_name",
+    "category": "sequences",
+    "description": "A partitioned table renamed from needs to p_needs, still owning needs_id_seq. The sequence keeps its name: written as a serial, it is named after the new table.",
+    "before": "CREATE TABLE users (id bigint PRIMARY KEY);",
+    "after": "CREATE TABLE users (id bigint PRIMARY KEY); CREATE TABLE p_needs (id bigint NOT NULL, partition_id bigint NOT NULL, name text NOT NULL) PARTITION BY LIST (partition_id); CREATE SEQUENCE needs_id_seq; ALTER SEQUENCE needs_id_seq OWNED BY p_needs.id; ALTER TABLE p_needs ALTER COLUMN id SET DEFAULT nextval('needs_id_seq'::regclass); CREATE TABLE needs (LIKE p_needs INCLUDING DEFAULTS); ALTER TABLE p_needs ATTACH PARTITION needs FOR VALUES IN (100);",
+    "preserve": []
   }
 ]
