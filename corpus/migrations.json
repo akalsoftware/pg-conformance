@@ -583,5 +583,21 @@
     "before": "CREATE TABLE users (id bigint PRIMARY KEY);",
     "after": "CREATE TABLE users (id bigint PRIMARY KEY); CREATE TABLE p_needs (id bigint NOT NULL, partition_id bigint NOT NULL, name text NOT NULL) PARTITION BY LIST (partition_id); CREATE SEQUENCE needs_id_seq; ALTER SEQUENCE needs_id_seq OWNED BY p_needs.id; ALTER TABLE p_needs ALTER COLUMN id SET DEFAULT nextval('needs_id_seq'::regclass); CREATE TABLE needs (LIKE p_needs INCLUDING DEFAULTS); ALTER TABLE p_needs ATTACH PARTITION needs FOR VALUES IN (100);",
     "preserve": []
+  },
+  {
+    "id": "owned_sequence_filled_by_a_trigger",
+    "category": "sequences",
+    "description": "A new table whose id a trigger fills from a sequence the column owns, so the column has no default. The sequence is still created: read as the column's serial, nothing creates it and the first insert fails.",
+    "before": "CREATE TABLE users (id bigint PRIMARY KEY);",
+    "after": "CREATE TABLE users (id bigint PRIMARY KEY); CREATE FUNCTION assign_tasks_id() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.id := nextval('tasks_id_seq'::regclass); RETURN NEW; END $$; CREATE TABLE tasks (id bigint NOT NULL, name text NOT NULL); CREATE SEQUENCE tasks_id_seq; ALTER SEQUENCE tasks_id_seq OWNED BY tasks.id; ALTER TABLE tasks ADD CONSTRAINT tasks_pkey PRIMARY KEY (id); CREATE TRIGGER assign_tasks_id_trigger BEFORE INSERT ON tasks FOR EACH ROW EXECUTE FUNCTION assign_tasks_id();",
+    "preserve": []
+  },
+  {
+    "id": "default_on_a_sequence_the_column_does_not_own",
+    "category": "sequences",
+    "description": "A new table whose id default draws on another sequence, while the column owns one of its own that nothing uses. The default keeps its sequence: written as a serial, it draws on the owned one.",
+    "before": "CREATE TABLE users (id bigint PRIMARY KEY);",
+    "after": "CREATE TABLE users (id bigint PRIMARY KEY); CREATE SEQUENCE notifications_id_seq; CREATE TABLE p_notifications (id bigint DEFAULT nextval('notifications_id_seq'::regclass) NOT NULL, part integer DEFAULT 1 NOT NULL) PARTITION BY LIST (part); CREATE SEQUENCE p_notifications_id_seq; ALTER SEQUENCE p_notifications_id_seq OWNED BY p_notifications.id;",
+    "preserve": []
   }
 ]
