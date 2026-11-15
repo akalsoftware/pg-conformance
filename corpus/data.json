@@ -118,5 +118,25 @@
     "compare": [
       "SELECT id, u::text, ok::text, ip::text, mac::text, bits::text, price::numeric::text, r::text FROM at ORDER BY id"
     ]
+  },
+  {
+    "id": "special_numbers_and_times",
+    "description": "Numeric and real infinities, a negative zero, the extremes of timestamp, date and interval, 24:00 and the largest oid.",
+    "schema": "CREATE TABLE sx (id int PRIMARY KEY, n numeric, f float8, r real, ts timestamp, tstz timestamptz, d date, iv interval, t time, o oid);",
+    "before": "INSERT INTO sx VALUES (1, 0, 0, 0, '2026-01-01', '2026-01-01 00:00+00', '2026-01-01', '1 day', '12:00', 1);",
+    "after": "INSERT INTO sx VALUES (1, 'Infinity', '-0', 'Infinity', 'infinity', '-infinity', '-infinity', '178000000 years', '24:00', 4294967295), (2, '-Infinity', 'NaN', '-Infinity', '294276-12-31 23:59:59.999999', '4713-01-01 00:00:00+00 BC', '5874897-12-31', '-1 day 00:00:00.000001', '00:00', 0), (3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);",
+    "compare": [
+      "SELECT id, n::text, f::text, r::text, ts::text, (tstz AT TIME ZONE 'UTC')::text, d::text, iv::text, t::text, o::text FROM sx ORDER BY id"
+    ]
+  },
+  {
+    "id": "geometry_search_and_network",
+    "description": "xml, geometric types, tsvector and tsquery, macaddr8, cidr, blank-padded char, a long bit string, multiranges, an array of two dimensions with NULLs, json keeping an escaped NUL and duplicate keys, and jsonb with emoji.",
+    "schema": "CREATE TABLE gx (id int PRIMARY KEY, x xml, pt point, poly polygon, c circle, bx box, tsv tsvector, tq tsquery, m8 macaddr8, net cidr, ch char(5), vb bit varying(70), mr int4multirange, arr int[], j json, jb jsonb);",
+    "before": "INSERT INTO gx (id, ch) VALUES (1, 'old');",
+    "after": "INSERT INTO gx VALUES (1, '<a b=\"1\">x &amp; y</a>', '(1.5,-2)', '((0,0),(1,1),(1,0))', '<(0,0),5>', '((0,0),(2,2))', 'a:1 fat:2B cat', 'fat & !rat', '08:00:2b:01:02:03:04:05', '10.1.0.0/16', 'ab', B'1010101010101010101010101010101010101010101010101010101010101010101010', '{[1,3),[5,7)}', '{{1,NULL},{3,4}}', '{\"k\": \"\\u0000\", \"dup\": 1, \"dup\": 2}', '{\"emoji\": \"😀\", \"rtl\": \"שלום\"}'), (2, NULL, NULL, NULL, NULL, NULL, '', NULL, NULL, '::/0', '', B'', '{}', '{}', 'null', '[]');",
+    "compare": [
+      "SELECT id, x::text, pt::text, poly::text, c::text, bx::text, tsv::text, tq::text, m8::text, net::text, ch::text, length(ch), vb::text, mr::text, arr::text, j::text, jb::text FROM gx ORDER BY id"
+    ]
   }
 ]
