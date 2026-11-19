@@ -14,11 +14,14 @@ jobs:
       matrix:
         # The whole range the consumers support. A fingerprint that only works
         # on the newest server is not a shared definition of anything.
-        postgres: [14, 15, 16, 17, 18]
+        postgres: [14, 15, 16, 17, 18, 19]
+        # PostgreSQL 19 from its release candidate until postgres:19 is published.
+        include:
+          - { postgres: 19, tag: 19rc2 }
 
     services:
       postgres:
-        image: postgres:${{ matrix.postgres }}
+        image: postgres:${{ matrix.tag || matrix.postgres }}
         env:
           POSTGRES_USER: pgc
           POSTGRES_PASSWORD: pgc
@@ -44,7 +47,7 @@ jobs:
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
             https://www.postgresql.org/media/keys/ACCC4CF8.asc
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
-            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main ${{ matrix.postgres }}" \
             | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends postgresql-client-${{ matrix.postgres }}
